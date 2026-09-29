@@ -2,20 +2,9 @@
 
 ## The Problem: Every Support Conversation Starts From Zero
 
-Automated customer support tools are notoriously forgetful. When a customer troubleshoots an issue, tries four diagnostic steps, discovers three failed, and finally resolves it, all of that context evaporates once the session closes. Returning two days later, they are greeted as a stranger: asked for their operating system again and told to retry the exact step that already failed.
+Stateless support assistants treat each conversation as an isolated event. When a customer returns in a new session, the LLM retains no conversational context, forcing the customer to re-explain their environment and repeat failed troubleshooting steps.
 
-Relying solely on conversation history—the rolling window of chat turns passed in the prompt—is fundamentally insufficient:
-1. **It is transient:** When a session ends or resets, conversational context is lost.
-2. **It does not scale:** Passing dozens of prior turns into an LLM window causes token bloat, latency spikes, and degraded prompt adherence.
-3. **It lacks semantic structure:** Raw transcripts mix pleasantries with diagnostic facts, forcing the model to re-parse the dialogue each turn.
-
-To build a reliable assistant, I separated the agent's context into four architectural layers:
-- **Conversation History:** Short-term dialogue turns within the active session.
-- **Domain Knowledge:** Static organization runbooks (CloudDesk product guides).
-- **Durable Customer Memory:** Long-term customer facts, environment details (operating system, browser), and interaction preferences retained across sessions.
-- **Learned Troubleshooting Behavior:** Structured intelligence derived from past outcomes—specifically which steps succeeded, which failed, and how future recommendations should adapt.
-
-The goal was to make memory directly drive future troubleshooting: prioritizing proven solutions, eliminating dead ends, and preserving case continuity across escalations.
+Transcript stuffing hits context length limits and inflates inference costs with conversational noise. Similarly, basic vector search over chat transcripts retrieves what was discussed rather than what succeeded or failed. Technical support requires durable memory to retain structured context, track outcomes across sessions, respect communication preferences, and sustain unresolved ticket states.
 
 <!-- SCREENSHOT TODO:
 Add a screenshot of the CloudDesk support dashboard showing the polished
@@ -24,138 +13,102 @@ customer conversation, Hindsight status, and Customer Memory panel.
 
 ## What I Wanted the Agent to Remember
 
-Before integrating memory, I established strict boundaries on what to retain. Storing everything creates context pollution; storing too little renders memory useless.
+Effective memory for technical support requires selective retention rather than chat logging. CloudDesk retains four categories:
 
-I designed the agent to extract and persist five specific classes of information:
+1. **Customer Profile and Environment**: Operational context including tier (`pro`), cloud provider (`aws`), runtime (`docker`), and OS (`macos`).
+2. **Troubleshooting Outcomes**: Historical records of diagnostic or remediation steps that succeeded or failed.
+3. **Customer Preferences**: Communication styles such as conciseness, step-by-step guidance, or CLI formatting.
+4. **Persistent Ticket Context**: Durable identifiers (`ticketId`), escalation states, severity, and diagnostic notes.
 
-1. **Client Environment Facts:** The customer's operating system (Windows 11, macOS, Linux) and browser (Chrome, Firefox, Safari), eliminating redundant triage questions.
-2. **Customer Support Preferences:** Explicit constraints like preferring *"one troubleshooting step at a time"* or wanting *"concise instructions"*, which yield if the customer requests all steps at once in emergencies.
-3. **Successful Troubleshooting Resolutions:** The exact canonical action that resolved an issue (e.g., disabling browser extensions resolved a dashboard crash).
-4. **Failed Troubleshooting Attempts:** Every step the customer attempted that failed to resolve the problem.
-5. **Support Ticket Records:** When troubleshooting fails, unresolved cases escalate to durable tickets (e.g., `CS-1001`), recording environment facts and prior failures so future sessions resume without restarting triage.
+By isolating these categories, memory becomes actionable guidance that modifies future responses.
 
 ## Where Hindsight Fits
 
-To implement persistent memory without bespoke vector storage and indexing pipelines, I integrated Hindsight. You can explore the implementation via the [Hindsight GitHub repository](https://github.com/vectorize-io/hindsight) and review the [Hindsight documentation](https://hindsight.vectorize.io/). The design follows the principles in Vectorize's guide to [Vectorize agent memory](https://vectorize.io/what-is-agent-memory).
+To deliver persistent memory across sessions, CloudDesk integrates [Vectorize agent memory](https://vectorize.io/what-is-agent-memory) powered by Hindsight. Integration patterns are documented in the [Hindsight documentation](https://hindsight.vectorize.io/) and the [Hindsight GitHub repository](https://github.com/vectorize-io/hindsight).
 
-In this architecture, Hindsight provides the persistent customer memory bank. I wrapped `@vectorize-io/hindsight-client` inside a backend service (`hindsight.service.js`) with three primary functions:
-
-### 1. Customer-Isolated Memory Banks
-Multi-tenant scoping requires strict isolation between customers. Each customer is mapped to a separate Hindsight memory bank, so retention and recall operations are scoped to that customer's bank:
+Hindsight provides managed memory bank infrastructure where facts and outcomes are retained and recalled through semantic queries. Tenancy is managed directly through distinct memory banks:
 
 ```javascript
+// server/src/services/memory/hindsight.service.js
 getBankId(customerId) {
-  return customerId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  const sanitized = customerId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `customer_${sanitized}`;
 }
 ```
 
-### 2. Structured Retention (`retainMemory`)
-When storing facts, the service attaches structured metadata and classification tags. A successful resolution is tagged with `['successful_resolution', 'resolution', issueTag]` alongside metadata containing the issue, attempted step, and result, distinguishing episodic narratives from actionable facts.
-
-### 3. Enriched Semantic Recall (`recallMemory`)
-In fresh sessions, the backend builds an enriched query combining the issue with semantic anchors (*"crashing previous issue troubleshooting resolution successful failed customer environment preference support ticket"*). Our application calls Hindsight's recall API with this query, and Hindsight returns relevant memories for that customer's bank, which are formatted by `formatMemoryContext` and injected into the agent prompt.
-
-Unlike static CloudDesk support knowledge (which defines product runbooks), recalled Hindsight memories provide personal grounding of what actually occurred with this specific customer.
+Each customer is mapped to a separate Hindsight memory bank, so retention and recall operations are scoped to that customer's bank. When a customer initiates a conversation, the backend recalls contextual memories from their specific bank using semantic search.
 
 ## Learning From Successful and Failed Troubleshooting
 
-The central engineering challenge is reliably detecting whether a troubleshooting step worked or failed. A subtle bug I encountered early on involved naive phrase matching:
+Most memory implementations only record positive outcomes. In technical support, knowing what failed is equally critical to prevent repeating useless suggestions.
 
-If a customer says, *"Clearing the browser cache didn't fix it,"* a naive substring search for `"fix it"` or `"fixed it"` matches the substring and misclassifies the failure as a success!
+CloudDesk extracts support outcomes using deterministic pattern detection in `server/src/services/resolution/supportOutcome.service.js`. User messages are evaluated against positive patterns ("that worked", "fixed", "resolved") and negative failure patterns ("didn't work", "still failing", "error persists").
 
-To prevent this, I built a deterministic outcome detector in `supportOutcome.service.js`:
+When an outcome is detected, CloudDesk generates structured outcome events:
 
-1. **Text Normalization:** Contractions like `didn't` are standardized to `didnt`, and non-alphanumeric punctuation is stripped.
-2. **Partitioned Phrase Matching:** The system evaluates mutually exclusive `FAILED_PHRASES` (`didnt work`, `didnt fix it`, `still crashing`, `failed to resolve`) against `RESOLVED_PHRASES` (`that fixed it`, `works now`, `issue is resolved`, `all good now`).
-3. **Contrastive Clause Resolution:** For compound sentences (*"Clearing cache didn't fix it, but disabling extensions fixed the problem"*), the parser evaluates clause positions and conjunctions like `but` to extract the true outcome from the resolution clause.
-4. **Step Extraction Asymmetry:** For successful confirmations (*"That fixed it"*), the engine references recent assistant recommendations to identify the step. For failures, the engine enforces a strict constraint: if the customer does not explicitly name the failed action, the system does not infer a step from history, avoiding falsely blacklisting innocent steps.
-
-Once classified, `formatResolutionMemory` generates a durable Hindsight payload:
-- **Success:** `"Previous dashboard loading failure was successfully resolved by disabling browser extensions."` (tagged `successful_resolution`)
-- **Failure:** `"Troubleshooting step \"clearing browser cache\" did not resolve dashboard loading failure."` (tagged `failed_resolution`)
-
-## Turning Memory Into Adaptive Troubleshooting
-
-Storing memories is only half the solution; they must actively adapt troubleshooting strategy. In `supportResolutionLearning.service.js`, I built an adaptive prioritization engine that inspects recalled memories before the LLM generates a response:
-
-1. **Chronological Tracking:** Memories are sorted by timestamp so newer outcomes override older ones.
-2. **Canonical Step Mapping:** Variations (*"extensions"*, *"ad blocker"*, *"plugin"*) map to canonical actions (`disabling browser extensions`).
-3. **Blacklisting Failed Approaches:** Any step with a failure count is placed on an avoided steps list.
-4. **Hierarchical Prioritization:**
-   - **Priority A (Customer Success):** A step that previously resolved this issue for this specific customer.
-   - **Priority B (Environment Success):** A step that resolved issues on the customer's matching operating system or browser.
-   - **Priority C (Official Knowledge Base):** CloudDesk procedures from `supportKnowledge.service.js`, filtered to exclude steps on the customer's avoided list.
-   - **Priority D (Untried Fallbacks):** Standard fallback procedures not yet attempted.
-5. **Outcome Reversal:** If a step that previously worked later fails (e.g., switching to UDP port 1194 fails when an ISP blocks UDP), the latest failure supersedes past success and moves the step to the blacklist.
-
-The agent executes this learning service on every turn in `agent.service.js`:
-
-```javascript
-const solutionPrioritization = supportResolutionLearningService.prioritizeSolutions({
-  issue: currentIssue,
-  environment: detectedEnv,
-  knowledgeDocs,
-  memories: recallResult?.memories || [],
-});
-
-const adaptiveDirective = supportResolutionLearningService.generateAdaptiveDirective(solutionPrioritization);
-```
-
-The generated directive explicitly commands the LLM:
-```text
-[ADAPTIVE TROUBLESHOOTING INTELLIGENCE & SOLUTION PRIORITIZATION]:
-- Primary Recommended Approach: "disabling browser extensions" (Priority: CUSTOMER_SUCCESS)
-- Decision Rationale: Previously successful for this customer on dashboard loading failure.
-- STRICTLY AVOID Previously Failed Approaches: "clearing browser cache"
-```
-
-This prevents the LLM from relying on generic probabilistic completions and forces it to honor empirical customer history.
+- **SUCCESS**: Links the attempted solution with the root issue, marks resolution verified, and retains success in Hindsight.
+- **FAILURE**: Records the attempted solution as ineffective, generates an avoidance directive, and retains failure in Hindsight.
+- **REVERSAL**: If a previously successful approach later fails, the service updates the memory profile so the agent avoids it.
 
 <!-- SCREENSHOT TODO:
 Add a screenshot showing Learned Support Behavior with a previously
 successful approach and a previously failed/avoided approach.
 -->
 
-## Customer Preferences
+## Turning Memory Into Adaptive Troubleshooting
 
-Customers have diverse support styles. In `supportPreference.service.js`, the agent detects and extracts durable preferences across three verified categories:
-- **Troubleshooting Style:** Prefers one troubleshooting step at a time versus a full list.
-- **Communication Style:** Prefers concise instructions without conversational pleasantries.
-- **Technical Level:** Advanced background (skips basic background explanations) versus detailed step-by-step guidance.
+Memory provides practical utility when it directly changes the agent's downstream behavior. CloudDesk implements adaptive resolution logic in `server/src/services/resolution/adaptiveResolution.service.js` and `server/src/services/agent/agent.service.js`.
 
-When detected, preferences are stored in Hindsight with tag `preference` and formatted into active directives during prompt assembly. However, real support requires flexibility: if a customer with a stored "one step at a time" preference states they are in a rush and asks for all steps immediately, the current message must override the stored memory.
-
-To handle this, `detectOverride` inspects the user message against explicit override patterns:
+When a customer reports an issue, the system queries Hindsight for historical outcomes linked to that topic. Attempted solutions are classified into prioritizations or avoidances. The agent then injects an explicit adaptive directive into the LLM system prompt:
 
 ```javascript
-detectOverride(userMessage = '') {
-  if (!userMessage || typeof userMessage !== 'string') {
-    return { hasOverride: false, overrideType: null };
-  }
+// server/src/services/agent/agent.service.js
+if (adaptiveContext?.avoidSolutions?.length > 0) {
+  const avoidList = adaptiveContext.avoidSolutions.map(s => `"${s}"`).join(', ');
+  parts.push(`AVOID these previously failed approaches: ${avoidList}. Do NOT suggest them again.`);
+}
 
-  for (const pattern of OVERRIDE_PATTERNS) {
-    if (pattern.test(userMessage.trim())) {
-      return {
-        hasOverride: true,
-        overrideType: 'all_steps_requested',
-      };
-    }
-  }
-
-  return { hasOverride: false, overrideType: null };
+if (adaptiveContext?.prioritizeSolutions?.length > 0) {
+  const prioritizeList = adaptiveContext.prioritizeSolutions.map(s => `"${s}"`).join(', ');
+  parts.push(`PRIORITIZE this previously successful approach: ${prioritizeList}. It worked for this customer before.`);
 }
 ```
 
-When an override is detected, the agent bypasses the step-by-step constraint for that turn while leaving the durable preference intact for future sessions.
+When generating troubleshooting guidance, the LLM skips invalidated remediation steps and prioritizes known working solutions, preventing redundant loops.
+
+## Customer Preferences
+
+Support customers have distinct technical communication styles; a DevOps engineer often requires direct CLI commands, whereas an administrator might prefer numbered steps.
+
+CloudDesk manages user styles through `server/src/services/preference/supportPreference.service.js`, supporting four concrete preference keys: `verbosity` (`concise` or `detailed`), `technicalLevel` (`advanced`, `intermediate`, or `beginner`), `format` (`code_first`, `steps_first`, or `bulleted`), and `codePreference` (`cli`, `sdk`, or `gui`).
+
+Crucially, an agent must respect immediate customer requests that contradict stored defaults. CloudDesk checks for real-time overrides before enforcing historical preferences:
+
+```javascript
+// server/src/services/preference/supportPreference.service.js
+detectOverride(userMessage) {
+  const lower = userMessage.toLowerCase();
+  const overrides = {};
+
+  if (/\b(be concise|briefly|short answer|keep it brief|quick summary)\b/.test(lower)) {
+    overrides.verbosity = 'concise';
+  } else if (/\b(explain in detail|elaborate|step by step|detailed explanation|walk me through)\b/.test(lower)) {
+    overrides.verbosity = 'detailed';
+  }
+
+  return overrides;
+}
+```
+
+If a customer whose historical profile favors verbose explanations writes "keep it brief, just give me the CLI flag", the runtime override takes precedence for that turn.
 
 ## Persistent Support Tickets
 
-Automated troubleshooting cannot solve every technical failure. When diagnostic steps are exhausted without resolution, forcing a customer through repetitive chat loops breaks trust.
+Semantic memory excels at associative recall, but operational workflows require deterministic transactional state. When an issue cannot be resolved through automated troubleshooting, the agent creates or updates a persistent support ticket in MongoDB.
 
-In `supportTicket.service.js`, when repeated attempts fail, the agent triggers automated ticket escalation:
-1. It records a structured ticket in MongoDB (`supportTicket.model.js`) with an identifier like `CS-1001`, logging customer ID, environment, escalation reason, and all attempted steps. MongoDB provides authoritative persistence across backend restarts.
-2. It simultaneously writes a `support_ticket` memory to Hindsight.
-3. In future sessions, when the customer mentions the ticket or issue, the agent acknowledges ticket `CS-1001`, confirms its escalated status, and references previously failed steps so the customer is not asked to repeat them.
+CloudDesk implements ticket lifecycles through `server/src/services/ticket/supportTicket.service.js` with structured fields: `ticketId` (`CS-1001`), `status` (`OPEN`, `INVESTIGATING`, `ESCALATED`, `RESOLVED`, `CLOSED`), `severity`, and diagnostic notes.
+
+In a new session, the agent retrieves active tickets for the `customerId`, preventing duplicate tickets and ensuring cross-session continuity.
 
 <!-- SCREENSHOT TODO:
 Add a screenshot showing the support ticket and fresh-session continuity.
@@ -163,42 +116,28 @@ Add a screenshot showing the support ticket and fresh-session continuity.
 
 ## A Concrete Before/After Example
 
-The practical difference between a stateless assistant and this memory agent is demonstrated in our evaluation and demo workflows:
+The practical difference between stateless support and memory-augmented troubleshooting is verified in `server/scripts/verify_final_demo.js` and `server/scripts/evaluate_support_memory.js`.
 
-### Before (Stateless Support):
-A customer reports that CloudDesk reports fail to load. The agent suggests clearing browser cache. Two days later, in a new chat session, the customer returns with the same issue. The stateless bot asks for their OS and browser again, suggests clearing browser cache a second time, and has no record of the previous troubleshooting.
+### BEFORE
+A support conversation without durable memory has no retained customer-specific history after the session. When Alice reports an authentication token error, the agent suggests clearing cache. In a new session, the agent repeats the failed suggestion because prior attempts were forgotten.
 
-### After (Memory-Enabled Workflow):
-1. **Initial Issue:** Customer reports reports fail to load on Chrome/Windows 11.
-2. **Outcome Learned:** Customer confirms clearing browser cache worked; Hindsight retains `successful_resolution`.
-3. **Fresh Session:** Session resets with empty history. The customer reports the issue recurring.
-4. **Prioritization:** The agent recalls the past success and prioritizes clearing browser cache immediately without re-asking environment facts.
-5. **Reversal & Avoidance:** The customer reports cache clearing failed this time. The agent registers the failure, marks cache clearing as avoided, and switches to reducing date range filters.
-6. **Ticket Escalation & Continuity:** With repeated failure, ticket `CS-1001` is created in MongoDB and recorded in Hindsight.
-7. **Cross-Session Recall:** In a subsequent fresh session, the customer asks for a status update. The agent acknowledges `CS-1001`, notes its escalated status, and avoids repeating the failed cache attempt.
+### AFTER
+1. **Customer reports issue**: Alice reports recurring authentication token expiration.
+2. **Agent attempts troubleshooting**: Agent suggests clearing the authentication cache.
+3. **Outcome is recorded**: Alice confirms initial resolution after cache invalidation.
+4. **Hindsight retains useful information**: CloudDesk records verified success in Alice's memory bank.
+5. **Fresh session begins**: Alice disconnects and starts a fresh session later.
+6. **Previous support history is recalled**: Agent retrieves prior outcomes from Alice's bank.
+7. **Previous successful behavior can be prioritized**: Cache clearing is prioritized based on past success.
+8. **A later failure can reverse that learned behavior**: Cache clearing fails under high load; CloudDesk records a failure reversal.
+9. **The failed approach can be avoided**: Agent avoids repeating the failed cache clearing step.
+10. **Another approach can be prioritized**: Agent prioritizes configuring automated token renewal hooks in the SDK.
+11. **A persistent support ticket can be created/escalated**: Alice requests escalation; ticket `CS-1001` is marked `ESCALATED` in MongoDB.
+12. **A future session can recall the case**: In a future session, the agent greets Alice and references active ticket `CS-1001`.
 
 ## Architecture
 
-The system connects user chat interactions with both durable document storage and episodic memory banks:
-
-```mermaid
-flowchart TD
-    User["Customer Inquiry"] --> Agent["CloudDesk Support Agent"]
-    Agent --> Knowledge["CloudDesk Support Knowledge"]
-    Agent --> Hindsight["Hindsight Customer Bank"]
-    subgraph MemoryBank ["Customer Memory Bank"]
-        Env["Environment Context"]
-        SuccessMem["Successful Resolutions"]
-        FailMem["Failed Approaches"]
-        Prefs["Customer Preferences"]
-        TicketMem["Support Ticket Memory"]
-    end
-    Hindsight --- MemoryBank
-    Agent --> Adaptive["Adaptive Resolution Learning"]
-    Adaptive --> Prioritization["Prioritized Directives"]
-    Agent --> Tickets["MongoDB Support Ticket Store"]
-    Agent --> Continuity["Fresh-Session Continuity"]
-```
+CloudDesk integrates frontend orchestration, backend APIs, semantic memory persistence, and relational ticket storage into a cohesive pipeline.
 
 <!-- ARCHITECTURE DIAGRAM TODO:
 Create an architecture diagram showing the verified flow between
@@ -207,23 +146,36 @@ Adaptive Resolution Learning → MongoDB Support Tickets →
 Fresh-session continuity.
 -->
 
+```mermaid
+flowchart TD
+    Customer["Customer"] --> Agent["CloudDesk Support Agent"]
+    Agent --> KB["Support Knowledge"]
+    Agent --> HS["Hindsight Memory Banks"]
+    HS --> Adaptive["Adaptive Resolution Learning"]
+    Agent --> MDB[("MongoDB Support Tickets")]
+    MDB --> Continuity["Fresh-Session Continuity"]
+```
+
+The server orchestrates each turn by extracting preferences, recalling Hindsight memory, consulting the knowledge base, running adaptive checks, and syncing tickets to MongoDB.
+
 ## What I Learned
 
-Building this agent highlighted key engineering takeaways:
+Building and testing this memory-backed support architecture yielded four practical engineering lessons:
 
-1. **Memory is valuable when it alters decisions:** Storing conversations as passive logs adds little value. Memory becomes impactful when it deterministically re-orders troubleshooting steps and prevents repeated mistakes.
-2. **Failed outcomes matter as much as successes:** Blacklisting an approach that failed is often more critical for customer experience than repeating an approach that worked.
-3. **Current intent must supersede history:** Stored preferences should guide default behavior, but explicit user requests in the current turn must take precedence.
-4. **Different stores for different access patterns:** Hindsight provides semantic retrieval for unstructured context, while MongoDB provides reliable transactional state for support tickets.
+- **Memory is useful when it changes future behavior**: Historical data provides value only when it actively shapes prompt construction through explicit behavioral directives.
+- **Failed outcomes matter as much as successful outcomes**: Recording failed attempts prevents repetitive troubleshooting recommendations, directly improving customer trust.
+- **Current user intent can override historical preferences**: Stored preferences offer useful baseline defaults, but explicit real-time instructions must take immediate precedence.
+- **Semantic memory and durable ticket state serve different purposes**: Unstructured associative memory in Hindsight excels at conversational context and outcomes, while MongoDB provides authoritative transactional ticket tracking.
 
 ## Limitations and Tradeoffs
 
-While effective for the supported workflows, the current implementation has specific boundaries:
+The current implementation carries specific architectural tradeoffs:
 
-- **Phrase-Based Outcome Detection:** Outcome classification relies on deterministic keyword and regex matching. Unconventional phrasing or ambiguous feedback may not be detected as an outcome.
-- **Service Dependencies:** The architecture depends on external availability of Hindsight Cloud for memory recall, MongoDB for ticket persistence, and Google Gemini for language generation.
-- **Domain Scope:** The current implementation is scoped to technical desktop and web support scenarios, rather than generalized customer service.
+- **Deterministic phrase-based outcome extraction**: Outcomes are parsed using regex patterns rather than secondary LLM classifiers; unusual phrasing can cause missed detections.
+- **External service latency**: Querying Hindsight Cloud and MongoDB introduces network round-trips requiring timeout handling and connection pooling.
+- **Single-turn outcome association**: Outcome extraction pairs feedback with the immediate suggestion; feedback spanning multiple turns is not linked.
+- **Prototype demonstration scale**: The repository demonstrates scoped memory banks and ticket continuity at prototype scale; enterprise use requires automated memory compaction.
 
 ## Conclusion
 
-Stateless support bots repeatedly frustrate users by treating every conversation as day one. By integrating customer-isolated Hindsight memory banks, deterministic outcome detection, and adaptive solution prioritization, the CloudDesk support agent bridges the gap between individual sessions. Instead of starting from scratch each session, the agent can recall previous outcomes, avoid known failed approaches, and continue unresolved cases through persistent support tickets.
+Standard conversational AI frequently frustrates customers by forgetting previous interactions and repeating discredited advice. By integrating Hindsight memory banks with deterministic outcome detection, adaptive resolution directives, and MongoDB ticket persistence, CloudDesk demonstrates a practical pattern for technical support. Instead of starting from scratch each session, the agent can recall previous outcomes, avoid known failed approaches, and continue unresolved cases through persistent support tickets.
