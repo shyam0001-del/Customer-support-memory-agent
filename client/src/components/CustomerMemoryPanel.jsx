@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Info,
   Building2,
+  Sliders,
 } from 'lucide-react';
 
 /**
@@ -43,7 +44,7 @@ function cleanStepText(text = '') {
 /**
  * Parses raw recalled memory facts from Hindsight into structured UI indicators
  */
-function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = []) {
+function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = [], rawPreferences = []) {
   const combined = items.join(' ');
   const lower = combined.toLowerCase();
 
@@ -60,7 +61,56 @@ function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = []) {
   else if (lower.includes('firefox')) browser = 'Firefox';
   else if (lower.includes('edge')) browser = 'Microsoft Edge';
 
-  // 2. Previous Issues detection
+  // 2. Customer Preferences detection (Phase 4)
+  const preferences = new Set();
+  for (const p of rawPreferences) {
+    if (typeof p === 'string') {
+      const pLower = p.toLowerCase();
+      if (pLower.includes('troubleshooting_style') || pLower.includes('one troubleshooting step') || pLower.includes('one step at a time')) {
+        preferences.add('One troubleshooting step at a time');
+      } else if (pLower.includes('communication_style') || pLower.includes('concise instructions') || pLower.includes('prefers concise')) {
+        preferences.add('Prefers concise instructions');
+      } else if (pLower.includes('technical_level') || pLower.includes('advanced / skip basic') || pLower.includes('skip basic')) {
+        preferences.add('Advanced technical background');
+      } else if (pLower.includes('detailed explanations')) {
+        preferences.add('Needs detailed explanations');
+      } else {
+        preferences.add(p);
+      }
+    } else if (p && typeof p === 'object') {
+      preferences.add(p.display || p.value || String(p));
+    }
+  }
+
+  for (const item of items) {
+    const itemLower = item.toLowerCase();
+    if (
+      itemLower.includes('troubleshooting_style') ||
+      itemLower.includes('one troubleshooting step at a time') ||
+      itemLower.includes('one step at a time')
+    ) {
+      preferences.add('One troubleshooting step at a time');
+    }
+    if (
+      itemLower.includes('communication_style') ||
+      itemLower.includes('concise instructions') ||
+      itemLower.includes('prefers concise')
+    ) {
+      preferences.add('Prefers concise instructions');
+    }
+    if (
+      itemLower.includes('technical_level') ||
+      itemLower.includes('advanced / skip basic') ||
+      itemLower.includes('skip basic explanations')
+    ) {
+      preferences.add('Advanced technical background');
+    }
+    if (itemLower.includes('detailed explanations')) {
+      preferences.add('Needs detailed explanations');
+    }
+  }
+
+  // 3. Previous Issues detection
   const issues = new Set();
   if (lower.includes('crash') || lower.includes('crashing')) {
     issues.add('Login crash');
@@ -75,7 +125,7 @@ function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = []) {
     issues.add('Browser compatibility');
   }
 
-  // 3. Successful Resolutions
+  // 4. Successful Resolutions
   const resolutions = new Set();
   // Check backend categorized list first
   for (const s of rawSuccessful) {
@@ -93,7 +143,7 @@ function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = []) {
     }
   }
 
-  // 4. Previous Failed Attempts
+  // 5. Previous Failed Attempts
   const failedAttempts = new Set();
   for (const f of rawFailed) {
     failedAttempts.add(cleanStepText(f));
@@ -113,6 +163,7 @@ function parseMemoryFacts(items = [], rawSuccessful = [], rawFailed = []) {
   return {
     os,
     browser,
+    preferences: Array.from(preferences),
     issues: Array.from(issues),
     resolutions: Array.from(resolutions),
     failedAttempts: Array.from(failedAttempts),
@@ -130,11 +181,12 @@ export default function CustomerMemoryPanel({
     hasMemory,
     memoryCount,
     items = [],
+    preferences: rawPreferences = [],
     successfulResolutions = [],
     failedAttempts = [],
     isLoading,
   } = customerMemory || {};
-  const parsed = parseMemoryFacts(items, successfulResolutions, failedAttempts);
+  const parsed = parseMemoryFacts(items, successfulResolutions, failedAttempts, rawPreferences);
 
   return (
     <aside
@@ -228,6 +280,27 @@ export default function CustomerMemoryPanel({
                 {memoryCount} {memoryCount === 1 ? 'memory' : 'memories'} recalled
               </span>
             </div>
+
+            {/* Customer Preferences Section (Phase 4) */}
+            {parsed.preferences.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Customer Preferences</span>
+                </h4>
+                <div className="space-y-1.5">
+                  {parsed.preferences.map((pref, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-xs text-purple-200 flex items-start gap-2 shadow-sm"
+                    >
+                      <span className="text-purple-400 font-bold">•</span>
+                      <span className="font-medium">{pref}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Environment Section */}
             {(parsed.os || parsed.browser) && (

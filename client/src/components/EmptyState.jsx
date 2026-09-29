@@ -15,36 +15,69 @@ export default function EmptyState({ onSelectPrompt, customerId = 'customer_001'
     name: 'Customer',
   };
 
-  const supportPrompts = [
-    {
-      icon: AlertTriangle,
-      tag: 'Step 1 • Initial Report',
-      title: 'Crash After Login',
-      prompt: "My application keeps crashing after I log in. I'm using Chrome on Windows 11.",
-      badge: 'Retains Environment & Issue',
-    },
-    {
-      icon: RotateCcw,
-      tag: 'Step 2 • Test Recall',
-      title: 'Recurring Issue',
-      prompt: "I'm having the login problem again.",
-      badge: 'Recalls Previous Context',
-    },
-    {
-      icon: LayoutDashboard,
-      tag: 'Dashboard Access',
-      title: 'Dashboard Not Loading',
-      prompt: "I can't access my dashboard after the latest CloudDesk update.",
-      badge: 'Diagnostic Troubleshooting',
-    },
-    {
-      icon: BarChart3,
-      tag: 'Reporting Module',
-      title: 'Reports Loading Failure',
-      prompt: "My quarterly reports aren't loading and export is timing out.",
-      badge: 'Performance & Operations',
-    },
-  ];
+  const isPreferenceDemo = customerId.includes('preference');
+
+  const supportPrompts = isPreferenceDemo
+    ? [
+        {
+          icon: AlertTriangle,
+          tag: 'Demo Turn 1 • Teach Preference',
+          title: 'Express Support Style',
+          prompt: "Please give me one troubleshooting step at a time. I don't want a long list.",
+          badge: 'Retains Troubleshooting Preference',
+        },
+        {
+          icon: RotateCcw,
+          tag: 'Demo Turn 2 • Verify Adaptation',
+          title: 'Fresh Interaction (1 Step)',
+          prompt: "I'm having another login problem.",
+          badge: 'Recalls Preference & Adapts',
+        },
+        {
+          icon: BarChart3,
+          tag: 'Demo Turn 3 • Override Rule',
+          title: 'Current Request Override',
+          prompt: 'Actually, give me all the steps at once.',
+          badge: 'Current Request Overrides Stored Preference',
+        },
+        {
+          icon: LayoutDashboard,
+          tag: 'Style 2 • Concise Instructions',
+          title: 'Concise Preference',
+          prompt: 'Keep the instructions short.',
+          badge: 'Concise Communication Style',
+        },
+      ]
+    : [
+        {
+          icon: AlertTriangle,
+          tag: 'Step 1 • Initial Report',
+          title: 'Crash After Login',
+          prompt: "My application keeps crashing after I log in. I'm using Chrome on Windows 11.",
+          badge: 'Retains Environment & Issue',
+        },
+        {
+          icon: RotateCcw,
+          tag: 'Step 2 • Test Recall',
+          title: 'Recurring Issue',
+          prompt: "I'm having the login problem again.",
+          badge: 'Recalls Previous Context',
+        },
+        {
+          icon: LayoutDashboard,
+          tag: 'Dashboard Access',
+          title: 'Dashboard Not Loading',
+          prompt: "I can't access my dashboard after the latest CloudDesk update.",
+          badge: 'Diagnostic Troubleshooting',
+        },
+        {
+          icon: BarChart3,
+          tag: 'Reporting Module',
+          title: 'Reports Loading Failure',
+          prompt: "My quarterly reports aren't loading and export is timing out.",
+          badge: 'Performance & Operations',
+        },
+      ];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center text-center">

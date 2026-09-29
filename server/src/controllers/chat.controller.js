@@ -112,13 +112,14 @@ export async function getCustomerMemoryHandler(req, res, next) {
     const { hindsightService } = await import('../services/memory/hindsight.service.js');
     const recallResult = await hindsightService.recallMemory({
       customerId: customerId.trim(),
-      query: 'environment operating system browser previous issue resolution successful failed troubleshooting',
+      query: 'environment operating system browser previous issue resolution successful failed troubleshooting preference communication style technical level',
     });
 
     const items = (recallResult?.memories || [])
       .map((m) => (typeof m === 'string' ? m : m.text || m.content || ''))
       .filter(Boolean);
 
+    const preferences = [];
     const successfulResolutions = [];
     const failedAttempts = [];
     const environmentFacts = [];
@@ -126,7 +127,14 @@ export async function getCustomerMemoryHandler(req, res, next) {
 
     for (const text of items) {
       const lower = text.toLowerCase();
-      if (lower.includes('successfully resolved') || lower.includes('resolution:')) {
+      if (
+        lower.includes('customer preference:') ||
+        lower.includes('troubleshooting_style') ||
+        lower.includes('communication_style') ||
+        lower.includes('technical_level')
+      ) {
+        preferences.push(text);
+      } else if (lower.includes('successfully resolved') || lower.includes('resolution:')) {
         successfulResolutions.push(text);
       } else if (
         lower.includes('did not resolve') ||
@@ -153,6 +161,7 @@ export async function getCustomerMemoryHandler(req, res, next) {
         hasMemory: items.length > 0,
         memoryCount: items.length,
         items,
+        preferences,
         successfulResolutions,
         failedAttempts,
         environmentFacts,
@@ -167,6 +176,7 @@ export async function getCustomerMemoryHandler(req, res, next) {
         hasMemory: false,
         memoryCount: 0,
         items: [],
+        preferences: [],
         successfulResolutions: [],
         failedAttempts: [],
         environmentFacts: [],

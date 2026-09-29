@@ -2,8 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { sendChatMessage, checkServerHealth, getCustomerMemory } from '../services/api';
 
 export function useChat() {
-  const [customerId, setCustomerId] = useState('customer_001');
+  const [customerId, setCustomerId] = useState('customer_preference_demo_001');
   const [conversations, setConversations] = useState({
+    customer_preference_demo_001: [],
+    customer_preference_demo_002: [],
     customer_clean_demo_001: [],
     customer_clean_demo_002: [],
     customer_demo_001: [],
@@ -15,10 +17,11 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [customerMemory, setCustomerMemory] = useState({
-    customerId: 'customer_001',
+    customerId: 'customer_preference_demo_001',
     hasMemory: false,
     memoryCount: 0,
     items: [],
+    preferences: [],
     successfulResolutions: [],
     failedAttempts: [],
     environmentFacts: [],
@@ -45,6 +48,7 @@ export function useChat() {
         hasMemory: Boolean(data?.hasMemory),
         memoryCount: data?.memoryCount || 0,
         items: Array.isArray(data?.items) ? data.items : [],
+        preferences: Array.isArray(data?.preferences) ? data.preferences : [],
         successfulResolutions: Array.isArray(data?.successfulResolutions) ? data.successfulResolutions : [],
         failedAttempts: Array.isArray(data?.failedAttempts) ? data.failedAttempts : [],
         environmentFacts: Array.isArray(data?.environmentFacts) ? data.environmentFacts : [],
@@ -56,6 +60,7 @@ export function useChat() {
         hasMemory: false,
         memoryCount: 0,
         items: [],
+        preferences: [],
         successfulResolutions: [],
         failedAttempts: [],
         environmentFacts: [],
@@ -77,6 +82,7 @@ export function useChat() {
             hasMemory: Boolean(data?.hasMemory),
             memoryCount: data?.memoryCount || 0,
             items: Array.isArray(data?.items) ? data.items : [],
+            preferences: Array.isArray(data?.preferences) ? data.preferences : [],
             successfulResolutions: Array.isArray(data?.successfulResolutions) ? data.successfulResolutions : [],
             failedAttempts: Array.isArray(data?.failedAttempts) ? data.failedAttempts : [],
             environmentFacts: Array.isArray(data?.environmentFacts) ? data.environmentFacts : [],
@@ -90,6 +96,7 @@ export function useChat() {
             hasMemory: false,
             memoryCount: 0,
             items: [],
+            preferences: [],
             successfulResolutions: [],
             failedAttempts: [],
             environmentFacts: [],

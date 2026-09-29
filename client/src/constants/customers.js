@@ -1,5 +1,23 @@
 export const DEMO_CUSTOMERS = [
   {
+    id: 'customer_preference_demo_001',
+    name: 'Acme Preference Demo',
+    tier: 'Enterprise Demo',
+    initials: 'PD',
+    badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    avatarGradient: 'from-purple-600 to-indigo-600',
+    desc: 'Preference Learning Demo',
+  },
+  {
+    id: 'customer_preference_demo_002',
+    name: 'TechNova Preference Demo',
+    tier: 'Growth Demo',
+    initials: 'TD',
+    badgeClass: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+    avatarGradient: 'from-slate-600 to-slate-700',
+    desc: 'Isolated Preference Demo',
+  },
+  {
     id: 'customer_clean_demo_001',
     name: 'Acme Clean Demo',
     tier: 'Enterprise Demo',

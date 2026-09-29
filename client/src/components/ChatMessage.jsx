@@ -100,7 +100,9 @@ export default function ChatMessage({ message }) {
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm">
                   <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                   <span>
-                    {message.memory.recalledResolution
+                    {message.memory.recalledPreference
+                      ? '✨ Adapted to customer preference'
+                      : message.memory.recalledResolution
                       ? '✨ Remembered previous resolution'
                       : message.memory.recalledCount && message.memory.recalledCount > 1
                       ? `✨ Remembered ${message.memory.recalledCount} previous details`
@@ -109,12 +111,14 @@ export default function ChatMessage({ message }) {
                 </div>
               )}
 
-              {/* Hindsight Retain Badge (Learned Resolution / Experience) */}
+              {/* Hindsight Retain Badge (Learned Resolution / Experience / Preference) */}
               {message.memory?.retained && (
                 <div
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium shadow-sm border ${
                     message.memory.retainedType === 'failed_resolution'
                       ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      : message.memory.retainedType === 'preference'
+                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
                       : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                   }`}
                 >
@@ -122,11 +126,15 @@ export default function ChatMessage({ message }) {
                     className={`w-3.5 h-3.5 shrink-0 ${
                       message.memory.retainedType === 'failed_resolution'
                         ? 'text-amber-400'
+                        : message.memory.retainedType === 'preference'
+                        ? 'text-indigo-400'
                         : 'text-emerald-400'
                     }`}
                   />
                   <span>
-                    {message.memory.retainedType === 'successful_resolution'
+                    {message.memory.retainedType === 'preference'
+                      ? '💾 Saved customer preference'
+                      : message.memory.retainedType === 'successful_resolution'
                       ? '💾 Saved successful resolution'
                       : message.memory.retainedType === 'failed_resolution'
                       ? '💾 Saved failed troubleshooting attempt'
