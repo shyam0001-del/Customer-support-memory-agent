@@ -15,9 +15,41 @@ export default function EmptyState({ onSelectPrompt, customerId = 'customer_001'
     name: 'Customer',
   };
 
+  const isTicketDemo = customerId.includes('ticket');
   const isPreferenceDemo = customerId.includes('preference');
 
-  const supportPrompts = isPreferenceDemo
+  const supportPrompts = isTicketDemo
+    ? [
+        {
+          icon: AlertTriangle,
+          tag: 'Demo Turn 1 • Report Issue',
+          title: 'Reports Not Loading',
+          prompt: "My reports aren't loading in CloudDesk. I'm using Chrome on Windows 11.",
+          badge: 'Diagnostic Investigation',
+        },
+        {
+          icon: RotateCcw,
+          tag: 'Demo Turn 2 • Troubleshooting Fails',
+          title: 'Escalate to Ticket',
+          prompt: "Clearing the browser cache didn't fix it. It's still broken.",
+          badge: 'Creates Support Ticket',
+        },
+        {
+          icon: BarChart3,
+          tag: 'Demo Turn 3 • Fresh Session',
+          title: 'Check Ticket Status',
+          prompt: 'Any update on my reports issue?',
+          badge: 'Recalls Ticket & Case Continuity',
+        },
+        {
+          icon: LayoutDashboard,
+          tag: 'Demo Turn 4 • Ticket Inquiry',
+          title: 'Case Follow-Up',
+          prompt: "What's happening with my reports ticket?",
+          badge: 'Continuity & Status Update',
+        },
+      ]
+    : isPreferenceDemo
     ? [
         {
           icon: AlertTriangle,

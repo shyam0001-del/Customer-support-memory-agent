@@ -12,6 +12,7 @@ import {
   Info,
   Building2,
   Sliders,
+  Ticket,
 } from 'lucide-react';
 
 /**
@@ -182,6 +183,7 @@ export default function CustomerMemoryPanel({
     memoryCount,
     items = [],
     preferences: rawPreferences = [],
+    tickets = [],
     successfulResolutions = [],
     failedAttempts = [],
     isLoading,
@@ -296,6 +298,52 @@ export default function CustomerMemoryPanel({
                     >
                       <span className="text-purple-400 font-bold">•</span>
                       <span className="font-medium">{pref}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Support Tickets Section (Phase 5) */}
+            {tickets && tickets.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <Ticket className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Support Tickets</span>
+                </h4>
+                <div className="space-y-2">
+                  {tickets.map((t) => (
+                    <div
+                      key={t.ticketId}
+                      className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1.5 text-xs shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-amber-400 text-xs">{t.ticketId}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            t.status === 'resolved'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : t.status === 'escalated'
+                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                              : t.status === 'in_progress'
+                              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                              : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+                          }`}
+                        >
+                          {t.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="font-medium text-slate-100">{t.issue}</div>
+                      {t.previousAttempts && t.previousAttempts.length > 0 && (
+                        <div className="text-[11px] text-slate-400">
+                          <span className="text-slate-500">Attempted:</span> {t.previousAttempts.join(', ')}
+                        </div>
+                      )}
+                      {t.resolution && (
+                        <div className="text-[11px] text-emerald-300 bg-emerald-950/40 p-1.5 rounded border border-emerald-900/50">
+                          <span className="font-semibold">Resolution:</span> {t.resolution}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

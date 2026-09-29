@@ -11,6 +11,7 @@ import placementRoutes from './routes/placement.routes.js';
 import practiceRoutes from './routes/practice.routes.js';
 import knowledgeRoutes from './routes/knowledge.routes.js';
 import webRoutes from './routes/web.routes.js';
+import ticketRoutes from './routes/ticket.routes.js';
 import { successResponse, errorResponse } from './utils/apiResponse.js';
 import { metricsService } from './services/observability/metrics.service.js';
 
@@ -91,6 +92,7 @@ app.use('/api', placementRoutes);
 app.use('/api', practiceRoutes);
 app.use('/api', knowledgeRoutes);
 app.use('/api', webRoutes);
+app.use('/api', ticketRoutes);
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler);

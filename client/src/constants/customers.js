@@ -1,5 +1,23 @@
 export const DEMO_CUSTOMERS = [
   {
+    id: 'customer_ticket_demo_001',
+    name: 'Acme Ticket Demo',
+    tier: 'Enterprise Demo',
+    initials: 'TD',
+    badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    avatarGradient: 'from-amber-600 to-orange-600',
+    desc: 'Ticket & Escalation Demo',
+  },
+  {
+    id: 'customer_ticket_demo_002',
+    name: 'TechNova Ticket Demo',
+    tier: 'Growth Demo',
+    initials: 'TD',
+    badgeClass: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+    avatarGradient: 'from-slate-600 to-slate-700',
+    desc: 'Isolated Ticket Demo',
+  },
+  {
     id: 'customer_preference_demo_001',
     name: 'Acme Preference Demo',
     tier: 'Enterprise Demo',

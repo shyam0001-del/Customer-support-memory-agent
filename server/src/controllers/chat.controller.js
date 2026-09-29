@@ -154,14 +154,18 @@ export async function getCustomerMemoryHandler(req, res, next) {
       }
     }
 
+    const { supportTicketService } = await import('../services/ticket/supportTicket.service.js');
+    const tickets = await supportTicketService.listTicketsForCustomer(customerId.trim());
+
     return res.status(200).json({
       success: true,
       data: {
         customerId: customerId.trim(),
-        hasMemory: items.length > 0,
+        hasMemory: items.length > 0 || tickets.length > 0,
         memoryCount: items.length,
         items,
         preferences,
+        tickets,
         successfulResolutions,
         failedAttempts,
         environmentFacts,
@@ -177,6 +181,7 @@ export async function getCustomerMemoryHandler(req, res, next) {
         memoryCount: 0,
         items: [],
         preferences: [],
+        tickets: [],
         successfulResolutions: [],
         failedAttempts: [],
         environmentFacts: [],

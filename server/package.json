@@ -7,10 +7,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test test/api.test.js test/hindsight.test.js test/phase3_support_knowledge.test.js test/phase4_customer_preference.test.js",
+    "test": "node --test test/api.test.js test/hindsight.test.js test/phase3_support_knowledge.test.js test/phase4_customer_preference.test.js test/phase5_ticket_lifecycle.test.js",
     "test:hindsight": "node --test test/hindsight.test.js",
     "test:phase3": "node --test test/phase3_support_knowledge.test.js",
     "test:phase4": "node --test test/phase4_customer_preference.test.js",
+    "test:phase5": "node --test test/phase5_ticket_lifecycle.test.js",
     "evaluate:agent": "node scripts/evaluateAgent.js"
   },
   "keywords": [

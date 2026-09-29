@@ -8,6 +8,7 @@ import { extractSupportMemory } from '../memory/supportMemory.service.js';
 import { supportKnowledgeService } from '../knowledge/supportKnowledge.service.js';
 import { supportOutcomeService } from '../support/supportOutcome.service.js';
 import { supportPreferenceService } from '../preference/supportPreference.service.js';
+import { supportTicketService } from '../ticket/supportTicket.service.js';
 
 export const CUSTOMER_SUPPORT_SYSTEM_PROMPT =
   'You are a professional customer-support AI agent. ' +
@@ -27,7 +28,32 @@ export const CUSTOMER_SUPPORT_SYSTEM_PROMPT =
   '    - If the customer prefers one troubleshooting step at a time: Provide ONLY ONE clear, actionable troubleshooting step and politely ask them to try it and report back. Do NOT provide a list of multiple numbered steps.\n' +
   '    - If the customer prefers concise instructions: Keep your explanations minimal, direct, and actionable.\n' +
   '    - If the customer is technical / skip basics: Omit basic background explanations and jump straight to the technical diagnosis.\n' +
-  '11. Preference Override Rule: The customer\'s CURRENT message ALWAYS takes precedence over remembered preferences. If a stored preference says "one step at a time", but their current message asks for all steps at once or states they are in a hurry, you MUST provide all the troubleshooting steps as requested now.';
+  '11. Preference Override Rule: The customer\'s CURRENT message ALWAYS takes precedence over remembered preferences. If a stored preference says "one step at a time", but their current message asks for all steps at once or states they are in a hurry, you MUST provide all the troubleshooting steps as requested now.\n' +
+  '12. Support Ticket Continuity: If an existing support ticket is active or referenced for the customer\'s issue (e.g. CS-1001), do NOT ask the customer to repeat their problem or ask "What issue are you having?". Immediately acknowledge the ticket ID, state its current status (e.g. escalated, in progress, open), reference previous failed troubleshooting steps so they know they are documented, and provide the latest case update. Never recommend a troubleshooting step that is already recorded as failed.';
+
+/**
+ * Extracts environment from user message, history, and recalled memories
+ */
+export function extractEnvironmentFromContext(userMessage = '', history = [], recalledMemories = []) {
+  const combined = [
+    userMessage,
+    ...history.map((m) => m.content || ''),
+    ...recalledMemories.map((m) => (typeof m === 'string' ? m : m.text || m.content || '')),
+  ].join(' ');
+
+  const envParts = [];
+  if (/windows\s*11/i.test(combined)) envParts.push('Windows 11');
+  else if (/windows\s*10/i.test(combined)) envParts.push('Windows 10');
+  else if (/macos/i.test(combined)) envParts.push('macOS');
+  else if (/linux/i.test(combined)) envParts.push('Linux');
+
+  if (/chrome/i.test(combined)) envParts.push('Chrome');
+  else if (/firefox/i.test(combined)) envParts.push('Firefox');
+  else if (/safari/i.test(combined)) envParts.push('Safari');
+  else if (/edge/i.test(combined)) envParts.push('Edge');
+
+  return envParts.join(' / ');
+}
 
 /**
  * Builds an enriched recall query for customer support issues
@@ -40,7 +66,7 @@ export function buildRecallQuery(message) {
     .replace(/[^\w\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return `${clean} application crashing previous issue troubleshooting resolution successful failed customer environment preference communication style technical level`.trim();
+  return `${clean} application crashing previous issue troubleshooting resolution successful failed customer environment preference communication style technical level support ticket case CS status escalated open`.trim();
 }
 
 export const AGENT_LIMITS = {
@@ -163,6 +189,37 @@ export class AgentService {
         );
       });
 
+      // Retrieve active customer tickets (Phase 5)
+      const customerTickets = await supportTicketService.listTicketsForCustomer(customerId);
+      const relevantTicket = supportTicketService.matchRelevantTicket(customerTickets, message);
+
+      // Handle troubleshooting failure & ticket escalation
+      let activeEscalationTicket = null;
+      if (outcomeCheck.outcome === 'failed') {
+        const env = extractEnvironmentFromContext(message, history, recallResult?.memories || []);
+        const attempts = outcomeCheck.attemptedStep ? [outcomeCheck.attemptedStep] : [];
+
+        if (relevantTicket && relevantTicket.status !== 'resolved') {
+          activeEscalationTicket = await supportTicketService.updateTicket({
+            ticketId: relevantTicket.ticketId,
+            customerId,
+            status: 'escalated',
+            previousAttempts: attempts,
+            escalationReason: 'troubleshooting unsuccessful',
+          });
+        } else {
+          activeEscalationTicket = await supportTicketService.createTicket({
+            customerId,
+            issue: outcomeCheck.issue,
+            status: 'escalated',
+            priority: 'normal',
+            environment: env,
+            previousAttempts: attempts,
+            escalationReason: 'troubleshooting unsuccessful',
+          });
+        }
+      }
+
       // 3. Search official CloudDesk Support Knowledge (Company Reference)
       const knowledgeDocs = supportKnowledgeService.search(message, { limit: 2 });
       let knowledgePromptBlock = '';
@@ -170,7 +227,7 @@ export class AgentService {
         knowledgePromptBlock = supportKnowledgeService.formatKnowledgeContext(knowledgeDocs);
       }
 
-      // 4. Assemble system prompt combining Knowledge + Hindsight Memory + Preference Directives
+      // 4. Assemble system prompt combining Knowledge + Hindsight Memory + Preference Directives + Ticket Case Directives
       let systemPrompt = CUSTOMER_SUPPORT_SYSTEM_PROMPT;
       if (knowledgePromptBlock) {
         systemPrompt += `\n\n${knowledgePromptBlock}`;
@@ -197,6 +254,31 @@ export class AgentService {
         }
       }
 
+      // Apply ticket escalation or existing case continuity directives
+      if (outcomeCheck.outcome === 'failed' && activeEscalationTicket) {
+        systemPrompt += `\n\n[SUPPORT TICKET ESCALATION IN EFFECT]:\n` +
+          `Troubleshooting has failed for this customer. A support ticket [${activeEscalationTicket.ticketId}] has been created with status "${activeEscalationTicket.status}".\n` +
+          `Acknowledge that ${outcomeCheck.attemptedStep || 'the troubleshooting step'} did not fix the problem. Inform the customer that ticket ${activeEscalationTicket.ticketId} has been created and escalated to Tier 2 Engineering for direct investigation, and assure them their diagnostic history and failed attempt are documented.`;
+      } else if (relevantTicket && outcomeCheck.outcome !== 'failed') {
+        const attemptsList = relevantTicket.previousAttempts?.length
+          ? relevantTicket.previousAttempts.join(', ')
+          : 'None';
+        systemPrompt += `\n\n[RELEVANT ACTIVE SUPPORT TICKET CASE]:\n` +
+          `- Ticket ID: ${relevantTicket.ticketId}\n` +
+          `- Issue: ${relevantTicket.issue}\n` +
+          `- Status: ${relevantTicket.status}\n` +
+          `- Priority: ${relevantTicket.priority}\n` +
+          `- Environment: ${relevantTicket.environment || 'Not specified'}\n` +
+          `- Previous Attempts: ${attemptsList}\n` +
+          `- Escalation Reason: ${relevantTicket.escalationReason || 'None'}\n` +
+          `- Resolution: ${relevantTicket.resolution || 'Pending investigation'}\n` +
+          `CASE CONTINUITY DIRECTIVE:\n` +
+          `1. The customer is following up or inquiring about this existing case. Do NOT ask them "What problem are you having?" or ask them to repeat the issue.\n` +
+          `2. Acknowledge ticket ${relevantTicket.ticketId} and state its current status ("${relevantTicket.status}").\n` +
+          `3. Reference that prior failed troubleshooting (${attemptsList}) was noted as ineffective, and do NOT suggest it again.\n` +
+          `4. If status is resolved, explain the resolution (${relevantTicket.resolution}). If escalated/in_progress, confirm Tier 2 engineering is actively working on it.`;
+      }
+
       const messages = [
         { role: 'system', content: systemPrompt },
         ...history.filter((m) => !m.isError),
@@ -206,7 +288,7 @@ export class AgentService {
       // 5. Generate response using AI provider
       const response = await aiService.generateChatResponse(messages);
 
-      // 6. Retain preference, resolution learning, or technical facts in Hindsight
+      // 6. Retain preference, ticket, resolution learning, or technical facts in Hindsight
       let retainResult = null;
       let retainType = null;
 
@@ -263,6 +345,25 @@ export class AgentService {
             console.warn(`[Customer Support Failure Retain Warning] customerId=${customerId}: ${retainErr.message}`);
           }
         }
+
+        if (activeEscalationTicket) {
+          const ticketMemory = supportTicketService.formatTicketMemory(activeEscalationTicket);
+          try {
+            const ticketRetain = await hindsightService.retainMemory({
+              customerId,
+              content: ticketMemory.content,
+              tags: ticketMemory.tags,
+              metadata: ticketMemory.metadata,
+              context: `Support ticket created/escalated: ${activeEscalationTicket.ticketId} | Issue: ${activeEscalationTicket.issue}`,
+            });
+            if (!retainResult) {
+              retainResult = ticketRetain;
+              retainType = 'support_ticket';
+            }
+          } catch (retainErr) {
+            console.warn(`[Customer Support Ticket Retain Warning] customerId=${customerId}: ${retainErr.message}`);
+          }
+        }
       } else {
         // Initial issue / diagnostic facts retention
         const memoryCandidate = extractSupportMemory({
@@ -301,6 +402,8 @@ export class AgentService {
         iterations: 1,
         customerId,
         toolCalls: [],
+        ticket: activeEscalationTicket || relevantTicket || null,
+        tickets: customerTickets,
         memory: {
           recalled: Boolean(recallResult?.memories && recallResult.memories.length > 0),
           recalledCount: recallResult?.memories?.length || 0,
