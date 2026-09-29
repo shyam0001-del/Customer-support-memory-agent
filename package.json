@@ -1,0 +1,26 @@
+{
+  "name": "customer-support-memory-agent",
+  "version": "1.0.0",
+  "description": "Customer Support Memory Agent",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client",
+    "test:server": "npm test --prefix server",
+    "lint:client": "npm run lint --prefix client",
+    "evaluate:agent": "npm run evaluate:agent --prefix server"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "placement",
+    "interview-prep",
+    "engineering",
+    "react",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC"
+}
