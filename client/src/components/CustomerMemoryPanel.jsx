@@ -13,6 +13,7 @@ import {
   Building2,
   Sliders,
   Ticket,
+  Brain,
 } from 'lucide-react';
 
 /**
@@ -186,9 +187,31 @@ export default function CustomerMemoryPanel({
     tickets = [],
     successfulResolutions = [],
     failedAttempts = [],
+    learnedBehavior = null,
     isLoading,
   } = customerMemory || {};
   const parsed = parseMemoryFacts(items, successfulResolutions, failedAttempts, rawPreferences);
+
+  // Phase 6 Learned Support Behavior derivation
+  const learned = learnedBehavior || {};
+  const learnedSuccess = (learned.successfulApproaches && learned.successfulApproaches.length > 0)
+    ? learned.successfulApproaches
+    : Array.from(parsed.resolutions).map((r) => ({ approach: r, text: `${r} worked 1 time`, count: 1 }));
+  const learnedFailed = (learned.failedApproaches && learned.failedApproaches.length > 0)
+    ? learned.failedApproaches
+    : Array.from(parsed.failedAttempts).map((f) => ({ approach: f, text: `${f} failed 1 time`, count: 1 }));
+
+  const envParts = [parsed.os, parsed.browser].filter(Boolean);
+  const effectiveEnv = (learned.environment && learned.environment !== 'Not specified')
+    ? learned.environment
+    : (envParts.length > 0 ? envParts.join(' · ') : null);
+
+  const adaptationRules = learned.adaptationSummary || [
+    ...(learnedSuccess.length > 0 ? ['Prioritizes previously successful solutions'] : []),
+    ...(learnedFailed.length > 0 ? ['Avoids repeated failed attempts'] : []),
+  ];
+
+  const hasLearnedBehavior = learnedSuccess.length > 0 || learnedFailed.length > 0;
 
   return (
     <aside
@@ -282,6 +305,63 @@ export default function CustomerMemoryPanel({
                 {memoryCount} {memoryCount === 1 ? 'memory' : 'memories'} recalled
               </span>
             </div>
+
+            {/* Learned Support Behavior Section (Phase 6) */}
+            {hasLearnedBehavior && (
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                  <Brain className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Learned Support Behavior</span>
+                </h4>
+                <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-2.5 text-xs shadow-sm">
+                  {/* Successful & failed approaches */}
+                  <div className="space-y-1">
+                    {learnedSuccess.map((s, idx) => (
+                      <div key={`succ-${idx}`} className="flex items-start gap-1.5 text-emerald-300">
+                        <span className="font-bold text-emerald-400">✓</span>
+                        <span className="font-medium">{s.text || `${s.approach} worked ${s.count} time${s.count > 1 ? 's' : ''}`}</span>
+                      </div>
+                    ))}
+                    {learnedFailed.map((f, idx) => (
+                      <div key={`fail-${idx}`} className="flex items-start gap-1.5 text-rose-300">
+                        <span className="font-bold text-rose-400">✗</span>
+                        <span className="font-medium">{f.text || `${f.approach} failed ${f.count} time${f.count > 1 ? 's' : ''}`}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Environment */}
+                  {effectiveEnv && (
+                    <div className="pt-2 border-t border-slate-700/60 text-[11px]">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Environment:</div>
+                      <div className="text-slate-200 font-medium">{effectiveEnv}</div>
+                    </div>
+                  )}
+
+                  {/* Current support preference */}
+                  {parsed.preferences.length > 0 && (
+                    <div className="pt-2 border-t border-slate-700/60 text-[11px]">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-purple-400 mb-0.5">Current Support Preference:</div>
+                      <div className="text-purple-200 font-medium">{parsed.preferences[0]}</div>
+                    </div>
+                  )}
+
+                  {/* Agent adaptation */}
+                  {adaptationRules.length > 0 && (
+                    <div className="pt-2 border-t border-slate-700/60 text-[11px]">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-cyan-400 mb-0.5">Agent adaptation:</div>
+                      <div className="space-y-0.5">
+                        {adaptationRules.map((rule, idx) => (
+                          <div key={`adapt-${idx}`} className="text-slate-300 leading-snug">
+                            {rule}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Customer Preferences Section (Phase 4) */}
             {parsed.preferences.length > 0 && (

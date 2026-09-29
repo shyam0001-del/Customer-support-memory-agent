@@ -220,6 +220,14 @@ export class SupportPreferenceService {
   }
 
   /**
+   * Helper alias accepting { userMessage } or string directly
+   */
+  detectCurrentRequestOverride(params = {}) {
+    const msg = typeof params === 'string' ? params : params?.userMessage || '';
+    return this.detectOverride(msg);
+  }
+
+  /**
    * Extracts clean structured preferences from recalled memories
    * @param {Array<Object|string>} memories
    * @returns {Array<{key: string, value: string, display: string, directive: string}>}

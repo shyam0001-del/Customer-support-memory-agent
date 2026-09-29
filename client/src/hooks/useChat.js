@@ -28,6 +28,7 @@ export function useChat() {
     successfulResolutions: [],
     failedAttempts: [],
     environmentFacts: [],
+    learnedBehavior: null,
     isLoading: true,
   });
 
@@ -56,6 +57,7 @@ export function useChat() {
         successfulResolutions: Array.isArray(data?.successfulResolutions) ? data.successfulResolutions : [],
         failedAttempts: Array.isArray(data?.failedAttempts) ? data.failedAttempts : [],
         environmentFacts: Array.isArray(data?.environmentFacts) ? data.environmentFacts : [],
+        learnedBehavior: data?.learnedBehavior || null,
         isLoading: false,
       });
     } catch {
@@ -69,6 +71,7 @@ export function useChat() {
         successfulResolutions: [],
         failedAttempts: [],
         environmentFacts: [],
+        learnedBehavior: null,
         isLoading: false,
       });
     }
@@ -92,6 +95,7 @@ export function useChat() {
             successfulResolutions: Array.isArray(data?.successfulResolutions) ? data.successfulResolutions : [],
             failedAttempts: Array.isArray(data?.failedAttempts) ? data.failedAttempts : [],
             environmentFacts: Array.isArray(data?.environmentFacts) ? data.environmentFacts : [],
+            learnedBehavior: data?.learnedBehavior || null,
             isLoading: false,
           });
         }
@@ -107,6 +111,7 @@ export function useChat() {
             successfulResolutions: [],
             failedAttempts: [],
             environmentFacts: [],
+            learnedBehavior: null,
             isLoading: false,
           });
         }

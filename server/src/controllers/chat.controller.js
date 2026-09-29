@@ -155,7 +155,9 @@ export async function getCustomerMemoryHandler(req, res, next) {
     }
 
     const { supportTicketService } = await import('../services/ticket/supportTicket.service.js');
+    const { supportResolutionLearningService } = await import('../services/resolution/supportResolutionLearning.service.js');
     const tickets = await supportTicketService.listTicketsForCustomer(customerId.trim());
+    const learnedBehavior = supportResolutionLearningService.deriveLearnedBehavior(recallResult?.memories || items);
 
     return res.status(200).json({
       success: true,
@@ -170,6 +172,7 @@ export async function getCustomerMemoryHandler(req, res, next) {
         failedAttempts,
         environmentFacts,
         issueFacts,
+        learnedBehavior,
       },
     });
   } catch (_error) {

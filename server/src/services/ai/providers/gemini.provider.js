@@ -333,6 +333,7 @@ export class GeminiProvider {
         abortSignal: controller.signal,
         temperature: options.temperature ?? 0.7,
         maxOutputTokens: options.maxTokens ?? 2048,
+        thinkingConfig: { thinkingBudget: 0 },
       };
 
       if (systemInstruction) {
@@ -343,13 +344,33 @@ export class GeminiProvider {
         callConfig.tools = geminiTools;
       }
 
-      const response = await client.models.generateContent({
-        model,
-        contents,
-        config: callConfig,
-      });
+      let lastErr;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const response = await client.models.generateContent({
+            model,
+            contents,
+            config: callConfig,
+          });
 
-      return normalizeGeminiResponse(response, model);
+          return normalizeGeminiResponse(response, model);
+        } catch (callErr) {
+          lastErr = callErr;
+          const isTransient =
+            callErr?.status === 503 ||
+            callErr?.code === 503 ||
+            callErr?.message?.includes('503') ||
+            callErr?.message?.includes('high demand') ||
+            callErr?.message?.includes('Spikes in demand') ||
+            callErr?.message?.includes('UNAVAILABLE');
+          if (isTransient && attempt < 3 && !controller.signal.aborted) {
+            await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
+            continue;
+          }
+          throw callErr;
+        }
+      }
+      throw lastErr;
     } catch (error) {
       if (controller.signal.aborted || error?.name === 'AbortError') {
         const timeoutErr = new Error(`AI request timed out after ${timeoutMs}ms.`);

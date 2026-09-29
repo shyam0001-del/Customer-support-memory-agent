@@ -9,6 +9,7 @@ import { supportKnowledgeService } from '../knowledge/supportKnowledge.service.j
 import { supportOutcomeService } from '../support/supportOutcome.service.js';
 import { supportPreferenceService } from '../preference/supportPreference.service.js';
 import { supportTicketService } from '../ticket/supportTicket.service.js';
+import { supportResolutionLearningService } from '../resolution/supportResolutionLearning.service.js';
 
 export const CUSTOMER_SUPPORT_SYSTEM_PROMPT =
   'You are a professional customer-support AI agent. ' +
@@ -29,7 +30,8 @@ export const CUSTOMER_SUPPORT_SYSTEM_PROMPT =
   '    - If the customer prefers concise instructions: Keep your explanations minimal, direct, and actionable.\n' +
   '    - If the customer is technical / skip basics: Omit basic background explanations and jump straight to the technical diagnosis.\n' +
   '11. Preference Override Rule: The customer\'s CURRENT message ALWAYS takes precedence over remembered preferences. If a stored preference says "one step at a time", but their current message asks for all steps at once or states they are in a hurry, you MUST provide all the troubleshooting steps as requested now.\n' +
-  '12. Support Ticket Continuity: If an existing support ticket is active or referenced for the customer\'s issue (e.g. CS-1001), do NOT ask the customer to repeat their problem or ask "What issue are you having?". Immediately acknowledge the ticket ID, state its current status (e.g. escalated, in progress, open), reference previous failed troubleshooting steps so they know they are documented, and provide the latest case update. Never recommend a troubleshooting step that is already recorded as failed.';
+  '12. Support Ticket Continuity: If an existing support ticket is active or referenced for the customer\'s issue (e.g. CS-1001), do NOT ask the customer to repeat their problem or ask "What issue are you having?". Immediately acknowledge the ticket ID, state its current status (e.g. escalated, in progress, open), reference previous failed troubleshooting steps so they know they are documented, and provide the latest case update. Never recommend a troubleshooting step that is already recorded as failed.\n' +
+  '13. Adaptive Troubleshooting Prioritization: Always prioritize previously successful troubleshooting steps for this customer and their environment before recommending new steps. NEVER repeat or recommend troubleshooting steps that have previously failed for this customer.';
 
 /**
  * Extracts environment from user message, history, and recalled memories
@@ -279,6 +281,21 @@ export class AgentService {
           `4. If status is resolved, explain the resolution (${relevantTicket.resolution}). If escalated/in_progress, confirm Tier 2 engineering is actively working on it.`;
       }
 
+      // 4b. Adaptive Solution Prioritization (Phase 6)
+      const currentIssue = outcomeCheck.issue || (message.toLowerCase().includes('report') ? 'reports loading failure' : message.toLowerCase().includes('login') ? 'login crash' : '');
+      const detectedEnv = extractEnvironmentFromContext(message, history, recallResult?.memories || []);
+      const solutionPrioritization = supportResolutionLearningService.prioritizeSolutions({
+        issue: currentIssue,
+        environment: detectedEnv,
+        knowledgeDocs,
+        memories: recallResult?.memories || [],
+      });
+
+      const adaptiveDirective = supportResolutionLearningService.generateAdaptiveDirective(solutionPrioritization);
+      if (adaptiveDirective) {
+        systemPrompt += `\n\n${adaptiveDirective}`;
+      }
+
       const messages = [
         { role: 'system', content: systemPrompt },
         ...history.filter((m) => !m.isError),
@@ -425,6 +442,14 @@ export class AgentService {
         outcome: {
           detected: outcomeCheck.outcome,
           attemptedStep: outcomeCheck.attemptedStep,
+        },
+        adaptiveLearning: {
+          prioritized: Boolean(solutionPrioritization?.primaryRecommendation),
+          primaryRecommendation: solutionPrioritization?.primaryRecommendation || null,
+          priorityOrder: solutionPrioritization?.priorityOrder || null,
+          prioritizedSteps: solutionPrioritization?.prioritizedSteps || [],
+          avoidedSteps: solutionPrioritization?.avoidedSteps || [],
+          rationale: solutionPrioritization?.rationale || '',
         },
         traceId: trace.traceId,
       };
