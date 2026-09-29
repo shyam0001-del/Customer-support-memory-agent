@@ -265,6 +265,39 @@ export class SupportTicketService {
   }
 
   /**
+   * Deletes all tickets belonging to a specific customer (used for clean demo resets)
+   * @param {string} customerId
+   * @returns {Promise<{deletedCount: number}>}
+   */
+  async deleteTicketsForCustomer(customerId) {
+    if (!customerId || typeof customerId !== 'string' || !customerId.trim()) {
+      return { deletedCount: 0 };
+    }
+    const cleanCustomer = customerId.trim();
+
+    // Remove from in-memory cache
+    let inMemoryDeleted = 0;
+    for (const [id, ticket] of this.tickets.entries()) {
+      if (ticket.customerId === cleanCustomer) {
+        this.tickets.delete(id);
+        inMemoryDeleted += 1;
+      }
+    }
+
+    let deletedCount = inMemoryDeleted;
+    if (isDatabaseConnected()) {
+      try {
+        const res = await SupportTicket.deleteMany({ customerId: cleanCustomer });
+        deletedCount = res.deletedCount || inMemoryDeleted;
+      } catch (dbErr) {
+        console.warn(`[SupportTicketService] MongoDB deleteTicketsForCustomer warning: ${dbErr.message}`);
+      }
+    }
+
+    return { deletedCount };
+  }
+
+  /**
    * Updates an existing ticket with customer ownership validation and durable persistence
    * @param {Object} params
    * @param {string} params.ticketId

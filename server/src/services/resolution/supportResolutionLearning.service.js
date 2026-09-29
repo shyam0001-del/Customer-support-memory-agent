@@ -74,8 +74,8 @@ export class SupportResolutionLearningService {
 
     // Chronological order processing if timestamps exist
     const sortedMemories = [...memories].sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.timestamp || a.metadata?.timestamp || 0).getTime();
-      const timeB = new Date(b.createdAt || b.timestamp || b.metadata?.timestamp || 0).getTime();
+      const timeA = new Date(a.mentioned_at || a.createdAt || a.timestamp || a.metadata?.timestamp || 0).getTime();
+      const timeB = new Date(b.mentioned_at || b.createdAt || b.timestamp || b.metadata?.timestamp || 0).getTime();
       return timeA - timeB;
     });
 

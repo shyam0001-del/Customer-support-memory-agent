@@ -193,3 +193,60 @@ export async function getCustomerMemoryHandler(req, res, next) {
     });
   }
 }
+
+/**
+ * Deterministic demo reset endpoint (Phase 7)
+ * POST /api/chat/demo/reset
+ * Body: { customerId: string }
+ */
+export async function resetDemoCustomerHandler(req, res, next) {
+  try {
+    const { customerId } = req.body || {};
+    if (!customerId || typeof customerId !== 'string' || !customerId.trim()) {
+      return errorResponse(res, 'Valid "customerId" string is required in request body.', 400, 'VALIDATION_ERROR');
+    }
+    const cleanId = customerId.trim();
+
+    // Safety constraint: Prevent arbitrary or accidental deletion of non-demo accounts
+    const isAllowedDemoId =
+      cleanId.startsWith('customer_demo') ||
+      cleanId.startsWith('customer_ticket_demo') ||
+      cleanId.startsWith('customer_preference_demo') ||
+      cleanId.startsWith('customer_clean_demo') ||
+      cleanId.startsWith('customer_adaptive_demo') ||
+      cleanId.startsWith('customer_isolated_demo') ||
+      cleanId.startsWith('customer_hackathon_demo') ||
+      cleanId.startsWith('test_') ||
+      cleanId.startsWith('cust_') ||
+      cleanId === 'customer_001' ||
+      cleanId === 'customer_002' ||
+      cleanId === 'customer_003';
+
+    if (!isAllowedDemoId) {
+      return errorResponse(
+        res,
+        `Cannot reset customer "${cleanId}". Only designated demo/test accounts may be reset.`,
+        403,
+        'RESET_FORBIDDEN'
+      );
+    }
+
+    const { hindsightService } = await import('../services/memory/hindsight.service.js');
+    const { supportTicketService } = await import('../services/ticket/supportTicket.service.js');
+
+    const bankResult = await hindsightService.deleteBank(cleanId);
+    const ticketResult = await supportTicketService.deleteTicketsForCustomer(cleanId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Demo state for customer "${cleanId}" successfully reset.`,
+      data: {
+        customerId: cleanId,
+        hindsightBankDeleted: bankResult.success,
+        ticketsDeleted: ticketResult.deletedCount,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -2,7 +2,6 @@ import React from 'react';
 import {
   LifeBuoy,
   Plus,
-  CheckCircle2,
   Sparkles,
   Database,
   ShieldCheck,
@@ -176,10 +175,10 @@ export default function Sidebar({
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-purple-400" />
-              Hindsight
+              Hindsight Memory
             </span>
-            <span className="flex items-center gap-1 text-purple-300 font-medium">
-              <CheckCircle2 className="w-3 h-3 text-purple-400" />
+            <span className={`flex items-center gap-1.5 font-medium ${isHindsightConfigured ? 'text-purple-300' : 'text-rose-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${isHindsightConfigured ? 'bg-purple-400 animate-pulse' : 'bg-rose-400'}`} />
               {isHindsightConfigured ? 'Connected' : 'Offline'}
             </span>
           </div>

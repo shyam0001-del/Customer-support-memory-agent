@@ -121,6 +121,32 @@ export async function getCustomerMemory(customerId) {
 }
 
 /**
+ * Deterministically resets demo customer state (Hindsight bank + MongoDB tickets)
+ * @param {string} customerId
+ * @returns {Promise<{success: boolean, message: string, data: Object}>}
+ */
+export async function resetDemoCustomer(customerId) {
+  try {
+    const response = await fetch(`${API_BASE}/chat/demo/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customerId }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error?.message || data?.message || 'Failed to reset demo customer');
+    }
+    return data;
+  } catch (err) {
+    console.error('Error resetting demo customer:', err);
+    throw err;
+  }
+}
+
+/**
  * Check backend server and AI service readiness
  * @returns {Promise<{status: string, configuredModel: string, aiReady: boolean, database?: Object, missingEnv?: string[]}>}
  */

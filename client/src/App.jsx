@@ -24,6 +24,7 @@ export default function App() {
     sendMessage,
     clearChat,
     retryLastMessage,
+    resetDemo,
   } = useChat();
 
   const currentCustomer = DEMO_CUSTOMERS.find((c) => c.id === customerId) || DEMO_CUSTOMERS[0];
@@ -60,6 +61,7 @@ export default function App() {
           setSidebarOpen={setSidebarOpen}
           serverStatus={serverStatus}
           onClearChat={clearChat}
+          onResetDemo={resetDemo}
           hasMessages={messages.length > 0}
           customerId={customerId}
           memoryPanelOpen={memoryPanelOpen}

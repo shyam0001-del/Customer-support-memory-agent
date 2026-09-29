@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Trash2, CheckCircle2, Building2, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Menu, Trash2, RotateCcw, Building2, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { DEMO_CUSTOMERS } from '../constants/customers';
 
 export default function Header({
@@ -7,6 +7,7 @@ export default function Header({
   setSidebarOpen,
   serverStatus,
   onClearChat,
+  onResetDemo,
   hasMessages,
   customerId = 'customer_001',
   memoryPanelOpen,
@@ -49,18 +50,25 @@ export default function Header({
 
       {/* Right Status Indicators & Actions */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Subtle Hindsight Connected Indicator */}
+        {/* Hindsight Persistent Memory Status */}
         <div
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
             isHindsightConfigured
-              ? 'bg-purple-500/10 border-purple-500/20 text-purple-300'
-              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              ? 'bg-purple-500/10 border-purple-500/25 text-purple-300'
+              : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
           }`}
-          title="Hindsight Persistent Memory Cloud Connection"
+          title={isHindsightConfigured ? 'Hindsight Persistent Memory Cloud Connected' : 'Hindsight Offline'}
         >
-          <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
-          <span className="hidden sm:inline">Hindsight Connected</span>
-          <span className="sm:hidden">Hindsight</span>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isHindsightConfigured ? 'bg-purple-400 animate-pulse' : 'bg-rose-400'
+            }`}
+          />
+          <span className="text-slate-300 font-semibold">Hindsight Memory</span>
+          <span className="text-slate-500 hidden sm:inline">•</span>
+          <span className={`font-semibold hidden sm:inline ${isHindsightConfigured ? 'text-purple-300' : 'text-rose-400'}`}>
+            {isHindsightConfigured ? 'Connected' : 'Offline'}
+          </span>
         </div>
 
         {/* AI Support Online Status */}
@@ -82,15 +90,27 @@ export default function Header({
           </span>
         </div>
 
-        {/* Clear / Reset Conversation */}
+        {/* Clear Conversation Session */}
         {hasMessages && (
           <button
             onClick={onClearChat}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition cursor-pointer"
-            title="Start new conversation session"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-700/60 transition cursor-pointer"
+            title="Start new fresh session (empty conversation history)"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Reset Session</span>
+            <span className="hidden md:inline">Fresh Session</span>
+          </button>
+        )}
+
+        {/* Deterministic Demo Reset Action */}
+        {onResetDemo && (
+          <button
+            onClick={() => onResetDemo(customerId)}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 border border-rose-500/30 transition cursor-pointer"
+            title="Reset customer memory bank in Hindsight and MongoDB tickets for a fresh demo run"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Reset Demo State</span>
           </button>
         )}
 

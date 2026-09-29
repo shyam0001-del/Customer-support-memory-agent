@@ -263,9 +263,22 @@ export class SupportPreferenceService {
       }
 
       // Check text-based representation
-      if (lower.includes('preference:') || lower.includes('customer preference')) {
+      if (
+        lower.includes('preference') ||
+        lower.includes('troubleshooting_style') ||
+        lower.includes('one step at a time') ||
+        lower.includes('one troubleshooting step') ||
+        lower.includes('concise') ||
+        lower.includes('skip basic')
+      ) {
         for (const rule of PREFERENCE_RULES) {
-          if (lower.includes(rule.key.toLowerCase()) && lower.includes(rule.value.toLowerCase())) {
+          const matchesCanonical = lower.includes(rule.key.toLowerCase()) && lower.includes(rule.value.toLowerCase());
+          const matchesNatural =
+            (rule.key === 'troubleshooting_style' && (lower.includes('one step at a time') || lower.includes('one troubleshooting step'))) ||
+            (rule.key === 'communication_style' && (lower.includes('concise') || lower.includes('short'))) ||
+            (rule.key === 'technical_level' && (lower.includes('skip basic') || lower.includes('technical')));
+
+          if (matchesCanonical || matchesNatural) {
             const dedupeId = `${rule.key}:${rule.value}`;
             if (!seen.has(dedupeId)) {
               seen.add(dedupeId);

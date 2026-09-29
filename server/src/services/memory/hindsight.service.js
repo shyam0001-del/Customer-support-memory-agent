@@ -69,6 +69,26 @@ export class HindsightService {
   }
 
   /**
+   * Deletes a customer's entire memory bank in Hindsight Cloud (used for demo resets)
+   * @param {string} customerId
+   * @returns {Promise<{success: boolean, bankId: string, warning?: string}>}
+   */
+  async deleteBank(customerId) {
+    const bankId = this.getBankId(customerId);
+    const client = this.getClient();
+    try {
+      await client.deleteBank(bankId);
+      return { success: true, bankId };
+    } catch (err) {
+      if (err.statusCode === 404 || /not found/i.test(err.message)) {
+        return { success: true, bankId };
+      }
+      console.warn(`[Hindsight DeleteBank Warning] bankId=${bankId}:`, err.message);
+      return { success: false, bankId, warning: err.message };
+    }
+  }
+
+  /**
    * Retain durable customer-support knowledge into Hindsight
    * @param {Object} params
    * @param {string} params.customerId - Customer identifier

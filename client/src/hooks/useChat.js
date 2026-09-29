@@ -1,25 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
-import { sendChatMessage, checkServerHealth, getCustomerMemory } from '../services/api';
+import { sendChatMessage, checkServerHealth, getCustomerMemory, resetDemoCustomer } from '../services/api';
 
 export function useChat() {
-  const [customerId, setCustomerId] = useState('customer_ticket_demo_001');
+  const [customerId, setCustomerId] = useState('customer_001');
   const [conversations, setConversations] = useState({
-    customer_ticket_demo_001: [],
-    customer_ticket_demo_002: [],
-    customer_preference_demo_001: [],
-    customer_preference_demo_002: [],
-    customer_clean_demo_001: [],
-    customer_clean_demo_002: [],
-    customer_demo_001: [],
-    customer_demo_002: [],
     customer_001: [],
+    customer_hackathon_demo: [],
     customer_002: [],
+    customer_ticket_demo_001: [],
+    customer_preference_demo_001: [],
     customer_003: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [customerMemory, setCustomerMemory] = useState({
-    customerId: 'customer_ticket_demo_001',
+    customerId: 'customer_001',
     hasMemory: false,
     memoryCount: 0,
     items: [],
@@ -277,6 +272,23 @@ export function useChat() {
     sendMessage(toRetry, toCustomer, toUserId);
   }, [customerId, error, isLoading, sendMessage]);
 
+  const resetDemo = useCallback(async (targetId) => {
+    const idToReset = targetId || customerId;
+    setIsLoading(true);
+    try {
+      await resetDemoCustomer(idToReset);
+      setConversations((prev) => ({
+        ...prev,
+        [idToReset]: [],
+      }));
+      await refreshCustomerMemory(idToReset);
+    } catch (err) {
+      console.error('Failed to reset demo customer:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [customerId, refreshCustomerMemory]);
+
   return {
     messages,
     isLoading,
@@ -290,5 +302,6 @@ export function useChat() {
     clearChat,
     retryLastMessage,
     refreshHealth,
+    resetDemo,
   };
 }

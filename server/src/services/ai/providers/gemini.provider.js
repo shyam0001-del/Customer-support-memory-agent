@@ -236,9 +236,8 @@ export function normalizeGeminiError(error, model) {
     code = 'INVALID_API_KEY';
     message = 'Invalid API key provided. Please check GEMINI_API_KEY in your server/.env file.';
   } else if (
-    msgLower.includes('not found') ||
-    msgLower.includes('models/') ||
-    status === 404
+    (status === 404 || msgLower.includes('not found') || msgLower.includes('is no longer available')) &&
+    !msgLower.includes('high demand')
   ) {
     statusCode = 404;
     code = 'MODEL_NOT_FOUND';
@@ -324,7 +323,7 @@ export class GeminiProvider {
     const { systemInstruction, contents } = adaptMessagesToGemini(input, options);
     const geminiTools = adaptToolsToGemini(options.tools);
 
-    const timeoutMs = options.timeoutMs || 30000;
+    const timeoutMs = options.timeoutMs || 90000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -345,7 +344,7 @@ export class GeminiProvider {
       }
 
       let lastErr;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const response = await client.models.generateContent({
             model,
@@ -363,8 +362,10 @@ export class GeminiProvider {
             callErr?.message?.includes('high demand') ||
             callErr?.message?.includes('Spikes in demand') ||
             callErr?.message?.includes('UNAVAILABLE');
-          if (isTransient && attempt < 3 && !controller.signal.aborted) {
-            await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
+          if (isTransient && attempt < 4 && !controller.signal.aborted) {
+            const backoffMs = Math.min(2000 * (attempt + 1), 6000);
+            console.warn(`[GeminiProvider] Transient 503 capacity spike on ${model}, retrying attempt ${attempt + 1}/5 in ${backoffMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
             continue;
           }
           throw callErr;
