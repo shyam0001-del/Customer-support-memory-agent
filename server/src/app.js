@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { config, validateAiConfig } from './config/env.js';
+import { config, validateAiConfig, validateHindsightConfig } from './config/env.js';
 import { getDatabaseStatus } from './config/db.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -35,6 +35,7 @@ app.use(requestLogger);
 // Health & System Info
 app.get('/api/health', (req, res) => {
   const { isValid, missing, provider } = validateAiConfig();
+  const hindsightStatus = validateHindsightConfig();
   const dbStatus = getDatabaseStatus();
   const activeModel = provider === 'gemini' ? config.gemini.model : config.openai.model;
 
@@ -45,6 +46,11 @@ app.get('/api/health', (req, res) => {
     aiProviderConfigured: isValid,
     configuredModel: activeModel || 'Not configured',
     aiReady: isValid,
+    hindsight: {
+      configured: hindsightStatus.isValid,
+      baseUrl: hindsightStatus.baseUrl,
+      hasApiKey: hindsightStatus.hasApiKey,
+    },
     database: dbStatus,
     ...(missing.length > 0 ? { missingEnv: missing } : {}),
     timestamp: new Date().toISOString(),
@@ -54,6 +60,7 @@ app.get('/api/health', (req, res) => {
 // Dependency Readiness Check (Phase 9)
 app.get('/api/health/readiness', (req, res) => {
   const { isValid: aiConfigured, provider } = validateAiConfig();
+  const hindsightStatus = validateHindsightConfig();
   const dbStatus = getDatabaseStatus();
 
   return successResponse(res, {
@@ -61,6 +68,7 @@ app.get('/api/health/readiness', (req, res) => {
     database: dbStatus.connected ? 'connected' : (config.mongodbUri ? 'disconnected' : 'in-memory'),
     aiProvider: provider || 'gemini',
     aiProviderConfigured: aiConfigured,
+    hindsightConfigured: hindsightStatus.isValid,
     timestamp: new Date().toISOString(),
   });
 });

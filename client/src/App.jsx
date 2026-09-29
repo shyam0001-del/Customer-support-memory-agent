@@ -1,86 +1,82 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
+import { DEMO_CUSTOMERS } from './constants/customers';
 import Header from './components/Header';
 import ChatArea from './components/ChatArea';
 import ChatInput from './components/ChatInput';
-import ProfileView from './components/ProfileView';
-import PlacementIntelligenceView from './components/PlacementIntelligenceView';
-import PracticeView from './components/PracticeView';
-import KnowledgeView from './components/KnowledgeView';
+import CustomerMemoryPanel from './components/CustomerMemoryPanel';
 import { useChat } from './hooks/useChat';
-import { useProfile } from './hooks/useProfile';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(true);
   const [inputValue, setInputValue] = useState('');
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'profile' | 'placement' | 'practice' | 'knowledge'
-
-  const {
-    profile,
-    activeUserId,
-    isLoading: isProfileLoading,
-    error: profileError,
-    successMessage: profileSuccess,
-    saveProfile,
-  } = useProfile();
 
   const {
     messages,
     isLoading: isChatLoading,
     error: chatError,
+    customerId,
+    setCustomerId,
+    customerMemory,
+    refreshCustomerMemory,
     serverStatus,
     sendMessage,
     clearChat,
     retryLastMessage,
   } = useChat();
 
+  const currentCustomer = DEMO_CUSTOMERS.find((c) => c.id === customerId) || DEMO_CUSTOMERS[0];
+
   const handleSend = () => {
     if (!inputValue.trim() || isChatLoading) return;
     const text = inputValue;
     setInputValue('');
-    sendMessage(text, activeUserId || null);
+    sendMessage(text, customerId);
   };
 
   const handleSelectPrompt = (promptText) => {
-    setActiveTab('chat');
-    sendMessage(promptText, activeUserId || null);
+    sendMessage(promptText, customerId);
   };
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
-      {/* Navigation / History Sidebar */}
+      {/* Customer Accounts Sidebar */}
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         serverStatus={serverStatus}
         onNewChat={clearChat}
-        onSelectPrompt={handleSelectPrompt}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        activeProfile={profile}
+        customerId={customerId}
+        setCustomerId={setCustomerId}
+        activeCustomerMemory={customerMemory}
       />
 
-      {/* Main View Area */}
-      <main className="flex-1 flex flex-col min-w-0 h-full relative">
+      {/* Main Support Workspace */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        {/* Support Header */}
         <Header
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           serverStatus={serverStatus}
           onClearChat={clearChat}
           hasMessages={messages.length > 0}
-          activeProfile={profile}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          customerId={customerId}
+          memoryPanelOpen={memoryPanelOpen}
+          setMemoryPanelOpen={setMemoryPanelOpen}
         />
 
-        {activeTab === 'chat' && (
-          <>
+        {/* Central Workspace: Chat + Customer Memory Panel */}
+        <div className="flex-1 flex min-h-0 overflow-hidden relative">
+          {/* Support Chat Area */}
+          <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-950">
             <ChatArea
               messages={messages}
               isLoading={isChatLoading}
               error={chatError}
               onRetry={retryLastMessage}
               onSelectPrompt={handleSelectPrompt}
+              customerId={customerId}
             />
 
             <ChatInput
@@ -89,45 +85,19 @@ export default function App() {
               onSend={handleSend}
               isLoading={isChatLoading}
             />
-          </>
-        )}
+          </main>
 
-        {activeTab === 'profile' && (
-          <ProfileView
-            profile={profile}
-            activeUserId={activeUserId}
-            onSave={saveProfile}
-            isLoading={isProfileLoading}
-            error={profileError}
-            successMessage={profileSuccess}
-            onBackToChat={() => setActiveTab('chat')}
-          />
-        )}
-
-        {activeTab === 'placement' && (
-          <PlacementIntelligenceView
-            activeUserId={activeUserId}
-            activeProfile={profile}
-            onStartChatWithPrompt={handleSelectPrompt}
-            onNavigateToProfile={() => setActiveTab('profile')}
-          />
-        )}
-
-        {activeTab === 'practice' && (
-          <PracticeView
-            activeUserId={activeUserId}
-            activeProfile={profile}
-            onStartChatWithPrompt={handleSelectPrompt}
-            onNavigateToProfile={() => setActiveTab('profile')}
-          />
-        )}
-
-        {activeTab === 'knowledge' && (
-          <KnowledgeView
-            onStartChatWithPrompt={handleSelectPrompt}
-          />
-        )}
-      </main>
+          {/* Customer Profile / Memory Panel (Hindsight) */}
+          {memoryPanelOpen && (
+            <CustomerMemoryPanel
+              customerId={customerId}
+              customerName={currentCustomer.name}
+              customerMemory={customerMemory}
+              onRefresh={refreshCustomerMemory}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

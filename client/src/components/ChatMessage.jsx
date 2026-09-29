@@ -1,118 +1,27 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, Copy, Check, AlertCircle, Sparkles, BookOpen, Globe, ExternalLink } from 'lucide-react';
-
-function getFriendlyToolName(name) {
-  switch (name) {
-    case 'get_user_profile':
-      return 'Checked candidate profile';
-    case 'get_user_progress':
-      return 'Analyzed preparation progress';
-    case 'update_user_progress':
-      return 'Updated study progress';
-    case 'search_knowledge':
-      return 'Retrieved placement knowledge';
-    case 'search_web':
-      return 'Web research';
-    case 'get_placement_readiness':
-      return 'Analyzed placement readiness';
-    case 'get_role_requirements':
-      return 'Retrieved role requirements';
-    case 'start_practice_session':
-      return 'Started practice session';
-    case 'submit_practice_answer':
-      return 'Evaluated practice answer';
-    case 'get_practice_history':
-      return 'Fetched practice history';
-    case 'get_weak_practice_topics':
-      return 'Analyzed weak practice areas';
-    default:
-      return 'Consulted preparation co-pilot tool';
-  }
-}
-
-/**
- * Helper to extract unique source titles from search_knowledge tool calls
- */
-function extractKnowledgeSources(toolCalls, content = '') {
-  const sources = new Set();
-
-  for (const t of toolCalls) {
-    if (t.name === 'search_knowledge' && Array.isArray(t.result?.results)) {
-      for (const item of t.result.results) {
-        if (item.title) sources.add(item.title);
-      }
-    }
-  }
-
-  if (content && typeof content === 'string') {
-    const sourcesMatch = content.match(/\*\*Sources:\*\*([\s\S]*?)(?:\n\n|$)/i);
-    if (sourcesMatch && sourcesMatch[1]) {
-      const lines = sourcesMatch[1].split('\n');
-      for (const line of lines) {
-        // Only internal sources without http links
-        if (!line.includes('http://') && !line.includes('https://')) {
-          const clean = line.replace(/^[-*•\d.]\s*/, '').replace(/\[|\]/g, '').trim();
-          if (clean) sources.add(clean);
-        }
-      }
-    }
-  }
-
-  return Array.from(sources);
-}
-
-/**
- * Helper to extract external web sources with clickable URLs
- */
-function extractWebSources(toolCalls, content = '') {
-  const webSources = [];
-  const seenUrls = new Set();
-
-  for (const t of toolCalls) {
-    if (t.name === 'search_web' && Array.isArray(t.result?.results)) {
-      for (const item of t.result.results) {
-        if (item.url && !seenUrls.has(item.url)) {
-          seenUrls.add(item.url);
-          webSources.push({
-            title: item.title || item.source || 'Web Source',
-            url: item.url,
-            source: item.source || 'Web',
-          });
-        }
-      }
-    }
-  }
-
-  if (content && typeof content === 'string') {
-    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-    let match;
-    while ((match = linkRegex.exec(content)) !== null) {
-      const title = match[1].trim();
-      const url = match[2].trim();
-      if (!seenUrls.has(url)) {
-        seenUrls.add(url);
-        webSources.push({
-          title,
-          url,
-          source: 'Web',
-        });
-      }
-    }
-  }
-
-  return webSources;
-}
+import {
+  LifeBuoy,
+  Copy,
+  Check,
+  AlertCircle,
+  Sparkles,
+  Save,
+  BookOpen,
+} from 'lucide-react';
+import { DEMO_CUSTOMERS } from '../constants/customers';
 
 export default function ChatMessage({ message }) {
   const isUser = message.role === 'user';
   const isError = message.isError;
-  const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
   const [copied, setCopied] = useState(false);
 
-  const knowledgeSources = !isUser ? extractKnowledgeSources(toolCalls, message.content) : [];
-  const webSources = !isUser ? extractWebSources(toolCalls, message.content) : [];
+  const customerMeta = DEMO_CUSTOMERS.find((c) => c.id === message.customerId) || {
+    name: 'Customer',
+    initials: 'C',
+    avatarGradient: 'from-slate-700 to-slate-600',
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -122,143 +31,177 @@ export default function ChatMessage({ message }) {
 
   return (
     <div
-      className={`group w-full py-4 px-4 sm:px-6 transition-colors ${
-        isUser
-          ? 'bg-slate-950/40'
-          : isError
-          ? 'bg-rose-950/20 border-y border-rose-900/30'
-          : 'bg-slate-900/40 border-y border-slate-900/80'
+      className={`w-full py-3 px-4 sm:px-6 flex transition-colors ${
+        isUser ? 'justify-end' : 'justify-start'
       }`}
     >
-      <div className="max-w-3xl mx-auto flex gap-3.5 sm:gap-4 items-start">
+      <div
+        className={`max-w-2xl sm:max-w-3xl flex gap-3 ${
+          isUser ? 'flex-row-reverse text-right' : 'flex-row text-left'
+        }`}
+      >
         {/* Avatar */}
         <div
-          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm text-xs font-semibold ${
+          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-semibold shadow-sm ${
             isUser
-              ? 'bg-gradient-to-tr from-slate-700 to-slate-600 text-slate-100 ring-1 ring-slate-600'
+              ? `bg-gradient-to-tr ${customerMeta.avatarGradient} text-white ring-1 ring-white/10`
               : isError
               ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-              : 'bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white ring-1 ring-cyan-400/30'
+              : 'bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-cyan-900/40 ring-1 ring-cyan-400/20'
           }`}
         >
           {isUser ? (
-            <User className="w-4 h-4" />
+            <span>{customerMeta.initials}</span>
           ) : isError ? (
             <AlertCircle className="w-4 h-4" />
           ) : (
-            <Bot className="w-4 h-4" />
+            <LifeBuoy className="w-4 h-4" />
           )}
         </div>
 
-        {/* Content Body */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-200">
-                {isUser ? 'You' : 'AI Placement Agent'}
+        {/* Message Container */}
+        <div className={`flex flex-col min-w-0 ${isUser ? 'items-end' : 'items-start'}`}>
+          {/* Header Info */}
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-slate-200">
+              {isUser ? customerMeta.name : 'CloudDesk AI Support'}
+            </span>
+
+            {isUser && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                {message.customerId || 'Customer'}
               </span>
-              {message.model && (
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
-                  {message.model}
-                </span>
-              )}
-              {message.timestamp && (
-                <span className="text-[11px] text-slate-400 font-mono">{message.timestamp}</span>
-              )}
-            </div>
+            )}
 
-            {/* Copy button */}
-            <button
-              onClick={handleCopy}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 cursor-pointer text-xs flex items-center gap-1"
-              title="Copy message"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[10px] text-emerald-400">Copied</span>
-                </>
-              ) : (
-                <Copy className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
+            {!isUser && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                Co-Pilot
+              </span>
+            )}
 
-          {/* Optional Tool Activity Badges */}
-          {toolCalls.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 my-2">
-              {toolCalls.map((t, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-slate-800/80 border border-slate-700 text-cyan-300 font-medium"
-                >
-                  {t.name === 'search_knowledge' ? (
-                    <BookOpen className="w-3 h-3 text-cyan-400" />
-                  ) : t.name === 'search_web' ? (
-                    <Globe className="w-3 h-3 text-emerald-400" />
-                  ) : (
-                    <Sparkles className="w-3 h-3 text-cyan-400" />
-                  )}
-                  <span>{getFriendlyToolName(t.name)}</span>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Render Markdown or plain text */}
-          <div className="prose-chat text-sm break-words">
-            {isUser ? (
-              <p className="whitespace-pre-wrap text-slate-100">{message.content}</p>
-            ) : (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.content}
-              </ReactMarkdown>
+            {message.timestamp && (
+              <span className="text-[10px] text-slate-400 font-mono">{message.timestamp}</span>
             )}
           </div>
 
-          {/* Subtle RAG Sources Badges */}
-          {knowledgeSources.length > 0 && (
-            <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <BookOpen className="w-3 h-3 text-cyan-400" />
-                <span>Knowledge Sources</span>
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {knowledgeSources.map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-800/90 text-cyan-300 border border-slate-700 hover:border-cyan-500/40 transition"
-                  >
-                    [{s}]
+          {/* Phase 3 Indicators: Support Knowledge & Hindsight Memory Badges */}
+          {!isUser && (message.knowledge?.used || message.memory) && (
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              {/* Support Knowledge Badge (RAG) */}
+              {message.knowledge?.used && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm">
+                  <BookOpen className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>📚 Used CloudDesk Support Knowledge</span>
+                </div>
+              )}
+
+              {/* Hindsight Recall Badge (Customer Memory) */}
+              {message.memory?.recalled && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>
+                    {message.memory.recalledResolution
+                      ? '✨ Remembered previous resolution'
+                      : message.memory.recalledCount && message.memory.recalledCount > 1
+                      ? `✨ Remembered ${message.memory.recalledCount} previous details`
+                      : '✨ Remembered from previous interactions'}
                   </span>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Hindsight Retain Badge (Learned Resolution / Experience) */}
+              {message.memory?.retained && (
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium shadow-sm border ${
+                    message.memory.retainedType === 'failed_resolution'
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  }`}
+                >
+                  <Save
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      message.memory.retainedType === 'failed_resolution'
+                        ? 'text-amber-400'
+                        : 'text-emerald-400'
+                    }`}
+                  />
+                  <span>
+                    {message.memory.retainedType === 'successful_resolution'
+                      ? '💾 Saved successful resolution'
+                      : message.memory.retainedType === 'failed_resolution'
+                      ? '💾 Saved failed troubleshooting attempt'
+                      : '💾 Saved to customer memory'}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* External Web Sources Badges */}
-          {webSources.length > 0 && (
-            <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Globe className="w-3 h-3 text-emerald-400" />
-                <span>Web Research Sources</span>
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {webSources.map((ws, idx) => (
-                  <a
-                    key={idx}
-                    href={ws.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800/90 text-emerald-300 border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800 transition group/link"
-                  >
-                    <span>{ws.title}</span>
-                    <ExternalLink className="w-3 h-3 text-emerald-400/70 group-hover/link:text-emerald-300 transition-colors" />
-                  </a>
-                ))}
-              </div>
+          {/* Chat Bubble Body */}
+          <div
+            className={`group relative px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+              isUser
+                ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm'
+                : isError
+                ? 'bg-rose-950/30 text-rose-200 border border-rose-900/40 rounded-tl-sm'
+                : 'bg-slate-800/80 text-slate-100 border border-slate-700/60 rounded-tl-sm shadow-sm'
+            }`}
+          >
+            {/* Markdown message content */}
+            <div
+              className={`prose prose-sm max-w-none text-left break-words ${
+                isUser ? 'prose-invert text-white' : 'prose-invert text-slate-200'
+              }`}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ node: _n, ...props }) => (
+                    <a
+                      {...props}
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  ),
+                  p: ({ node: _n, ...props }) => <p {...props} className="mb-2 last:mb-0" />,
+                  ul: ({ node: _n, ...props }) => <ul {...props} className="list-disc pl-4 mb-2 space-y-1" />,
+                  ol: ({ node: _n, ...props }) => <ol {...props} className="list-decimal pl-4 mb-2 space-y-1" />,
+                  li: ({ node: _n, ...props }) => <li {...props} className="text-slate-200" />,
+                  strong: ({ node: _n, ...props }) => <strong {...props} className="font-semibold text-white" />,
+                  code: ({ node: _n, inline, ...props }) =>
+                    inline ? (
+                      <code
+                        {...props}
+                        className="px-1 py-0.5 rounded bg-slate-900/70 text-cyan-300 font-mono text-xs border border-slate-700/50"
+                      />
+                    ) : (
+                      <pre className="p-3 my-2 rounded-lg bg-slate-950/90 text-cyan-300 font-mono text-xs overflow-x-auto border border-slate-800">
+                        <code {...props} />
+                      </pre>
+                    ),
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
-          )}
+
+            {/* Quick Copy Action */}
+            {!isUser && (
+              <button
+                onClick={handleCopy}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-700/60 cursor-pointer"
+                title="Copy response"
+                aria-label="Copy response text"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

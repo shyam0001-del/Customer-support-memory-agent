@@ -1,67 +1,77 @@
 import React from 'react';
 import {
-  Sparkles,
-  Database,
-  Code,
-  MessageSquareQuote,
-  Target,
+  LifeBuoy,
   ArrowRight,
+  ShieldCheck,
+  AlertTriangle,
+  RotateCcw,
+  BarChart3,
+  LayoutDashboard,
 } from 'lucide-react';
+import { DEMO_CUSTOMERS } from '../constants/customers';
 
-export default function EmptyState({ onSelectPrompt }) {
-  const promptSuggestions = [
+export default function EmptyState({ onSelectPrompt, customerId = 'customer_001' }) {
+  const currentCustomer = DEMO_CUSTOMERS.find((c) => c.id === customerId) || {
+    name: 'Customer',
+  };
+
+  const supportPrompts = [
     {
-      icon: Target,
-      tag: '14-Day Roadmap',
-      title: 'Data Analyst Sprint',
-      prompt: 'I have a Data Analyst interview at a top fintech in 14 days. What topics, SQL concepts, and projects should I prioritize?',
+      icon: AlertTriangle,
+      tag: 'Step 1 • Initial Report',
+      title: 'Crash After Login',
+      prompt: "My application keeps crashing after I log in. I'm using Chrome on Windows 11.",
+      badge: 'Retains Environment & Issue',
     },
     {
-      icon: Database,
-      tag: 'Technical Drill',
-      title: 'SQL & Indexing Diagnostic',
-      prompt: 'Explain the difference between clustered and non-clustered indexes in SQL, and give me a tricky query scenario often asked in interviews.',
+      icon: RotateCcw,
+      tag: 'Step 2 • Test Recall',
+      title: 'Recurring Issue',
+      prompt: "I'm having the login problem again.",
+      badge: 'Recalls Previous Context',
     },
     {
-      icon: Code,
-      tag: 'DSA Strategy',
-      title: 'High-Frequency Patterns',
-      prompt: 'What are the top 5 algorithmic patterns (like Two Pointers, Sliding Window, Topological Sort) that cover 80% of SDE-1 coding rounds?',
+      icon: LayoutDashboard,
+      tag: 'Dashboard Access',
+      title: 'Dashboard Not Loading',
+      prompt: "I can't access my dashboard after the latest CloudDesk update.",
+      badge: 'Diagnostic Troubleshooting',
     },
     {
-      icon: MessageSquareQuote,
-      tag: 'Behavioral Mock',
-      title: 'STAR Method Framework',
-      prompt: 'How should I structure my answer for "Describe a time when you resolved a critical technical disagreement with a team member"?',
+      icon: BarChart3,
+      tag: 'Reporting Module',
+      title: 'Reports Loading Failure',
+      prompt: "My quarterly reports aren't loading and export is timing out.",
+      badge: 'Performance & Operations',
     },
   ];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center text-center">
-      {/* Badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium mb-4">
-        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-        <span>Phase 1 — Core Intelligence Engine</span>
+      {/* Product & Memory Badge */}
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-medium mb-4">
+        <LifeBuoy className="w-3.5 h-3.5 text-cyan-400" />
+        <span>CloudDesk Technical Support Co-Pilot</span>
       </div>
 
-      {/* Main Title */}
-      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-3">
-        Master Your Engineering Placements
+      {/* Main Title & Subtitle */}
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2">
+        How can we help {currentCustomer.name}?
       </h1>
       <p className="text-sm sm:text-base text-slate-400 max-w-xl mb-8 leading-relaxed">
-        Your dedicated AI placement co-pilot for Software Engineering, Data Science, and Analyst roles.
-        Ask about interview roadmaps, technical concepts, mock questions, or behavioral answers.
+        Describe the technical issue you are experiencing with CloudDesk. Our AI support agent uses{' '}
+        <span className="text-purple-300 font-semibold">Hindsight memory</span> to recall your environment, past errors, and resolutions across interactions.
       </p>
 
-      {/* Quick Starter Grid */}
+      {/* Prompt Suggestions Grid */}
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-        {promptSuggestions.map((item, index) => {
+        {supportPrompts.map((item, index) => {
           const Icon = item.icon;
           return (
             <button
               key={index}
-              onClick={() => onSelectPrompt(item.prompt)}
-              className="group p-4 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition-all text-left flex flex-col justify-between cursor-pointer"
+              onClick={() => onSelectPrompt && onSelectPrompt(item.prompt)}
+              className="group p-4 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700/80 transition-all text-left flex flex-col justify-between cursor-pointer"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -78,9 +88,20 @@ export default function EmptyState({ onSelectPrompt }) {
                   {item.prompt}
                 </p>
               </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                <span className="text-purple-300/80 font-mono text-[10px]">{item.badge}</span>
+                <span className="text-slate-400 group-hover:text-slate-400 font-medium">Click to send</span>
+              </div>
             </button>
           );
         })}
+      </div>
+
+      {/* Trust & Memory Security Callout */}
+      <div className="mt-8 flex items-center gap-2 text-xs text-slate-400">
+        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <span>Hindsight multi-tenant isolation active • Customer banks strictly partitioned</span>
       </div>
     </div>
   );

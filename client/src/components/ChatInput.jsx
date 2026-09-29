@@ -6,7 +6,7 @@ export default function ChatInput({
   setInput,
   onSend,
   isLoading,
-  placeholder = 'Ask a question about your placement preparation...',
+  placeholder = "Describe the issue you're experiencing with CloudDesk...",
 }) {
   const textareaRef = useRef(null);
 
@@ -35,7 +35,7 @@ export default function ChatInput({
   };
 
   return (
-    <div className="border-t border-slate-800 bg-slate-900/80 backdrop-blur-md p-4">
+    <div className="border-t border-slate-800 bg-slate-900/80 backdrop-blur-md p-4 shrink-0">
       <div className="max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="relative">
           <div className="flex items-end gap-2 p-2 rounded-2xl bg-slate-950 border border-slate-800 focus-within:border-cyan-500/60 focus-within:ring-1 focus-within:ring-cyan-500/40 transition-all shadow-lg">
@@ -54,7 +54,7 @@ export default function ChatInput({
               type="submit"
               disabled={isLoading || !input.trim()}
               className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-semibold transition-all shrink-0 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
-              aria-label="Send message"
+              aria-label="Send support issue"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
@@ -70,7 +70,7 @@ export default function ChatInput({
             Press <kbd className="px-1 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-slate-400">Enter</kbd> to send,{' '}
             <kbd className="px-1 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-slate-400">Shift + Enter</kbd> for new line
           </span>
-          <span className="hidden sm:inline font-mono">AI Placement Agent v1.0</span>
+          <span className="hidden sm:inline font-mono text-purple-400/80">CloudDesk Support • Hindsight Memory</span>
         </div>
       </div>
     </div>

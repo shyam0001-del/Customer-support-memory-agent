@@ -38,7 +38,39 @@ export const config = {
   },
   mongodbUri: process.env.MONGODB_URI || '',
   nodeEnv: process.env.NODE_ENV || 'development',
+  hindsight: {
+    baseUrl: process.env.HINDSIGHT_BASE_URL || 'https://api.hindsight.vectorize.io',
+    apiKey: (process.env.HINDSIGHT_API_KEY || '')
+      .trim()
+      .replace(/^Bearer\s+/i, '')
+      .replace(/^\d+[\.\)]\s+/, '')
+      .replace(/^['"]|['"]$/g, '')
+      .trim(),
+  },
 };
+
+/**
+ * Validates Hindsight environment configuration without exposing credentials
+ */
+export function validateHindsightConfig() {
+  const missing = [];
+  const baseUrl = config.hindsight.baseUrl?.trim();
+  const apiKey = config.hindsight.apiKey?.trim();
+
+  if (!baseUrl) {
+    missing.push('HINDSIGHT_BASE_URL');
+  }
+  if (!apiKey) {
+    missing.push('HINDSIGHT_API_KEY');
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing,
+    baseUrl: baseUrl || 'Not configured',
+    hasApiKey: Boolean(apiKey),
+  };
+}
 
 /**
  * Validates critical environment variables required for AI operations based on active provider

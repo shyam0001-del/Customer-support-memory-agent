@@ -16,6 +16,7 @@ import { getPracticeHistoryTool } from './getPracticeHistory.tool.js';
 import { getWeakPracticeTopicsTool } from './getWeakPracticeTopics.tool.js';
 import { searchKnowledgeTool } from './searchKnowledge.tool.js';
 import { searchWebTool } from './searchWeb.tool.js';
+import { searchSupportKnowledgeTool } from './searchSupportKnowledge.tool.js';
 
 class ToolRegistry {
   constructor() {
@@ -38,6 +39,7 @@ class ToolRegistry {
     this.register(getWeakPracticeTopicsTool);
     this.register(searchKnowledgeTool);
     this.register(searchWebTool);
+    this.register(searchSupportKnowledgeTool);
   }
 
   /**

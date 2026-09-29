@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test test/api.test.js",
+    "test": "node --test test/api.test.js test/hindsight.test.js test/phase3_support_knowledge.test.js",
+    "test:hindsight": "node --test test/hindsight.test.js",
+    "test:phase3": "node --test test/phase3_support_knowledge.test.js",
     "evaluate:agent": "node scripts/evaluateAgent.js"
   },
   "keywords": [
@@ -20,6 +22,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^2.24.0",
+    "@vectorize-io/hindsight-client": "^0.10.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

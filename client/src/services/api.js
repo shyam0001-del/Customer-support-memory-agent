@@ -8,17 +8,20 @@ const API_BASE = '/api';
  * Send a chat message to the backend
  * @param {string} message - User message
  * @param {Array<{role: string, content: string}>} [history] - Optional conversation history
- * @param {string} [userId] - Optional active user profile ID (Phase 2)
- * @returns {Promise<{message: string, model?: string, usage?: Object}>}
+ * @param {string} [customerId] - Customer identifier for Hindsight memory
+ * @param {string} [userId] - Optional legacy user profile ID
+ * @returns {Promise<{message: string, model?: string, usage?: Object, customerId?: string, memory?: Object}>}
  */
-export async function sendChatMessage(message, history = [], userId = null) {
+export async function sendChatMessage(message, history = [], customerId = 'customer_001', userId = null) {
   try {
     const payload = {
       message,
       history,
     };
 
-    if (userId && typeof userId === 'string' && userId.trim()) {
+    if (customerId && typeof customerId === 'string' && customerId.trim()) {
+      payload.customerId = customerId.trim();
+    } else if (userId && typeof userId === 'string' && userId.trim()) {
       payload.userId = userId.trim();
     }
 
@@ -57,6 +60,10 @@ export async function sendChatMessage(message, history = [], userId = null) {
       model: data.data?.model || 'configured model',
       usage: data.data?.usage || null,
       toolCalls: data.data?.toolCalls || [],
+      customerId: data.data?.customerId || customerId || null,
+      memory: data.data?.memory || null,
+      knowledge: data.data?.knowledge || null,
+      outcome: data.data?.outcome || null,
     };
   } catch (error) {
     if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('network'))) {
@@ -66,6 +73,50 @@ export async function sendChatMessage(message, history = [], userId = null) {
     }
     console.error('API service error [sendChatMessage]:', error);
     throw error;
+  }
+}
+
+/**
+ * Safe customer memory lookup for CloudDesk UI Customer Memory panel
+ * @param {string} customerId
+ * @returns {Promise<{customerId: string, hasMemory: boolean, memoryCount: number, items: string[], successfulResolutions: string[], failedAttempts: string[], environmentFacts: string[]}>}
+ */
+export async function getCustomerMemory(customerId) {
+  try {
+    const res = await fetch(`${API_BASE}/chat/memory/${encodeURIComponent(customerId)}`);
+    if (!res.ok) {
+      return {
+        customerId,
+        hasMemory: false,
+        memoryCount: 0,
+        items: [],
+        successfulResolutions: [],
+        failedAttempts: [],
+        environmentFacts: [],
+      };
+    }
+    const json = await res.json();
+    return (
+      json.data || {
+        customerId,
+        hasMemory: false,
+        memoryCount: 0,
+        items: [],
+        successfulResolutions: [],
+        failedAttempts: [],
+        environmentFacts: [],
+      }
+    );
+  } catch {
+    return {
+      customerId,
+      hasMemory: false,
+      memoryCount: 0,
+      items: [],
+      successfulResolutions: [],
+      failedAttempts: [],
+      environmentFacts: [],
+    };
   }
 }
 
